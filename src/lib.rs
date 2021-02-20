@@ -68,9 +68,9 @@ mod mock;
 mod tests;
 
 /// Expected price oracle interface. `fetch_price` must return the amount of SettCurrency exchanged for the tracked value.
-pub trait FetchPrice<SettCurrency> {
+pub trait FetchPrice<CurrencyId> {
 	/// Fetch the current price.
-	fn fetch_price() -> SettCurrency;
+	fn fetch_price() -> CurrencyId;
 }
 
 pub trait WeightInfo {
