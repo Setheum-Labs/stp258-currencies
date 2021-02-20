@@ -327,6 +327,7 @@ impl<T: Config> SettCurrency<T::AccountId> for Module<T> {
 
 	/// The minimum amount of SettCurrency in circulation.
 	/// Must be lower than `InitialSupply`.
+	/// Cannot set minimum supply for `NativeCurrency`.
 	fn minimum_supply(currency_id: Self::CurrencyId) -> Self::Balance {
 		if currency_id == T::GetNativeCurrencyId::get() {
 			debug::warn!("Cannot set minimum supply for NativeCurrency: {}", currency_id);
