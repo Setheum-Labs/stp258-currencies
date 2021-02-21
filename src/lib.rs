@@ -122,15 +122,6 @@ decl_storage! {
 	trait Store for Module<T: Config> as Stp258 {
 		/// The total amount of SettCurrency in circulation.
         SettCurrencySupply get(fn settcurrency_supply): Get<CurrencyId> = 0;
-		
-		/// *Slot Shares*
-		/// The Shares are the entities that receive newly minted settcurrencies/stablecoins.
-		/// The allocation of slots/shares to accounts.
-		/// This is a `Vec` and thus should be limited to few shareholders (< 1_000).
-		/// In principle it would be possible to make shares tradeable. In that case
-		/// we would have to use a map similar to the `Balance` one.
-        Shares get(fn shares): Vec<(T::AccountId, u64)>;
-		
 	}
 
 	add_extra_genesis {
