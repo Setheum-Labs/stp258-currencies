@@ -69,9 +69,6 @@ use sp_std::{
 	marker, result,
 };
 
-use serml_traits::*;
-use orml_utilities::with_transaction_result;
-
 #[cfg(test)]
 mod mock;
 
