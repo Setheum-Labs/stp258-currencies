@@ -3,14 +3,14 @@
 //! ## Overview
 //!
 //! The stp258 module provides a mixed stablecoin system, by configuring a
-//! native currency which implements `ExtendedBasicCurrency`, and a
+//! native currency which implements `BasicCurrencyExtended`, and a
 //! multi-currency which implements `SettCurrency`.
 //!
 //! It also provides an adapter, to adapt `frame_support::traits::Currency`
-//! implementations into `ExtendedBasicCurrency`.
+//! implementations into `BasicCurrencyExtended`.
 //!
 //! The stp258 module provides functionality of both `ExtendedSettCurrency`
-//! and `ExtendedBasicCurrency`, via unified interfaces, and all calls would be
+//! and `BasicCurrencyExtended`, via unified interfaces, and all calls would be
 //! delegated to the underlying multi-currency and base currency system.
 //! A native currency ID could be set by `Config::GetNativeCurrencyId`, to
 //! identify the native currency.
@@ -49,6 +49,16 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+
+use orml_traits::{
+	account::MergeAccount,
+	arithmetic::{Signed, SimpleArithmetic},
+	BalanceStatus, BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, BasicReservableCurrency,
+	LockIdentifier, MultiCurrency as SettCurrency, MultiCurrencyExtended as ExtendedSettCurrency, 
+	MultiLockableCurrency as LockableSettCurrency, MultiReservableCurrency as ReservableSettCurrency,
+};
+
+use orml_utilities::with_transaction_result;
 use sp_runtime::{
 	traits::{CheckedSub, MaybeSerializeDeserialize, StaticLookup, Zero},
 	DispatchError, DispatchResult,
@@ -596,7 +606,7 @@ where
 	type Amount = AmountOf<T>;
 
 	fn update_balance(who: &T::AccountId, by_amount: Self::Amount) -> DispatchResult {
-		<Module<T> as SettCurrencyExtended<T::AccountId>>::update_balance(GetCurrencyId::get(), who, by_amount)
+		<Module<T> as ExtendedSettCurrency<T::AccountId>>::update_balance(GetCurrencyId::get(), who, by_amount)
 	}
 }
 
