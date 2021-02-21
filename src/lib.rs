@@ -37,6 +37,7 @@
 //!   currency, root origin required.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unused_unit)]
 
 use codec::Codec;
 use frame_support::{
