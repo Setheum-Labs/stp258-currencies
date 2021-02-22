@@ -3,14 +3,14 @@
 //! ## Overview
 //!
 //! The stp258 module provides a mixed stablecoin system, by configuring a
-//! native currency which implements `ExtendedBasicCurrency`, and a
+//! native currency which implements `BasicCurrencyExtended`, and a
 //! multi-currency which implements `SettCurrency`.
 //!
 //! It also provides an adapter, to adapt `frame_support::traits::Currency`
-//! implementations into `ExtendedBasicCurrency`.
+//! implementations into `BasicCurrencyExtended`.
 //!
 //! The stp258 module provides functionality of both `ExtendedSettCurrency`
-//! and `ExtendedBasicCurrency`, via unified interfaces, and all calls would be
+//! and `BasicCurrencyExtended`, via unified interfaces, and all calls would be
 //! delegated to the underlying multi-currency and base currency system.
 //! A native currency ID could be set by `Config::GetNativeCurrencyId`, to
 //! identify the native currency.
@@ -37,6 +37,7 @@
 //!   currency, root origin required.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unused_unit)]
 
 use codec::Codec;
 use frame_support::{
@@ -48,6 +49,16 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+
+use orml_traits::{
+	account::MergeAccount,
+	arithmetic::{Signed, SimpleArithmetic},
+	BalanceStatus, BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, BasicReservableCurrency,
+	LockIdentifier, MultiCurrency as SettCurrency, MultiCurrencyExtended as ExtendedSettCurrency, 
+	MultiLockableCurrency as LockableSettCurrency, MultiReservableCurrency as ReservableSettCurrency,
+};
+
+use orml_utilities::with_transaction_result;
 use sp_runtime::{
 	traits::{CheckedSub, MaybeSerializeDeserialize, StaticLookup, Zero},
 	DispatchError, DispatchResult,
@@ -58,9 +69,6 @@ use sp_std::{
 	marker, result,
 };
 
-use serml_traits::*;
-use orml_utilities::with_transaction_result;
-
 #[cfg(test)]
 mod mock;
 
@@ -68,9 +76,9 @@ mod mock;
 mod tests;
 
 /// Expected price oracle interface. `fetch_price` must return the amount of SettCurrency exchanged for the tracked value.
-pub trait FetchPrice<SettCurrency> {
+pub trait FetchPrice<CurrencyId> {
 	/// Fetch the current price.
-	fn fetch_price() -> SettCurrency;
+	fn fetch_price() -> CurrencyId;
 }
 
 pub trait WeightInfo {
@@ -122,15 +130,6 @@ decl_storage! {
 	trait Store for Module<T: Config> as Stp258 {
 		/// The total amount of SettCurrency in circulation.
         SettCurrencySupply get(fn settcurrency_supply): Get<CurrencyId> = 0;
-		
-		/// *Slot Shares*
-		/// The Shares are the entities that receive newly minted settcurrencies/stablecoins.
-		/// The allocation of slots/shares to accounts.
-		/// This is a `Vec` and thus should be limited to few shareholders (< 1_000).
-		/// In principle it would be possible to make shares tradeable. In that case
-		/// we would have to use a map similar to the `Balance` one.
-        Shares get(fn shares): Vec<(T::AccountId, u64)>;
-		
 	}
 
 	add_extra_genesis {
@@ -604,7 +603,7 @@ where
 	type Amount = AmountOf<T>;
 
 	fn update_balance(who: &T::AccountId, by_amount: Self::Amount) -> DispatchResult {
-		<Module<T> as SettCurrencyExtended<T::AccountId>>::update_balance(GetCurrencyId::get(), who, by_amount)
+		<Module<T> as ExtendedSettCurrency<T::AccountId>>::update_balance(GetCurrencyId::get(), who, by_amount)
 	}
 }
 
