@@ -35,6 +35,9 @@
 //! `Config::NativeCurrency`.
 //! - `update_balance` - Update balance by signed integer amount, in a given
 //!   currency, root origin required.
+//!
+//! - `mint` - Mint some amount to some given account, in a given
+//!   currency.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unused_unit)]
@@ -435,6 +438,22 @@ impl<T: Config> SettCurrency<T::AccountId> for Module<T> {
 			T::SettCurrency::slash(currency_id, who, amount)
 		}
 	}
+
+	fn mint(currency_id: Self::CurrencyId, who: &T::AccountId, amount: Self::Balance) -> result::Result<(), &'static str>{
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::mint(who, amount)
+		} else {
+			T::SettCurrency::mint(currency_id, who, amount)
+		}
+	}
+
+	fn burn(currency_id: Self::CurrencyId, who: &T::AccountId, amount: Self::Balance) -> result::Result<(), &'static str>{
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::burn(who, amount)
+		} else {
+			T::SettCurrency::burn(currency_id, who, amount)
+		}
+	}
 }
 
 impl<T: Config> ExtendedSettCurrency<T::AccountId> for Module<T> {
@@ -503,6 +522,22 @@ impl<T: Config> ReservableSettCurrency<T::AccountId> for Module<T> {
 			T::NativeCurrency::slash_reserved(who, value)
 		} else {
 			T::SettCurrency::slash_reserved(currency_id, who, value)
+		}
+	}
+	
+	fn mint(currency_id: Self::CurrencyId, who: &T::AccountId, value: Self::Balance) -> result::Result<(), &'static str>{
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::mint(who, value)
+		} else {
+			T::SettCurrency::mint(currency_id, who, value)
+		}
+	}
+
+	fn burn(currency_id: Self::CurrencyId, who: &T::AccountId, value: Self::Balance) -> result::Result<(), &'static str>{
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::burn(who, value)
+		} else {
+			T::SettCurrency::burn(currency_id, who,value)
 		}
 	}
 
@@ -593,6 +628,14 @@ where
 	fn slash(who: &T::AccountId, amount: Self::Balance) -> Self::Balance {
 		<Module<T>>::slash(GetCurrencyId::get(), who, amount)
 	}
+	
+	fn mint(who: &T::AccountId, amount: Self::Balance) -> result::Result<(), &'static str>{
+		<Module<T>>::mint(GetCurrencyId::get(), who, amount)
+	}
+
+	fn burn(who: &T::AccountId, amount: Self::Balance) -> result::Result<(), &'static str>{
+		<Module<T>>::burn(GetCurrencyId::get(), who, amount)
+	}
 }
 
 impl<T, GetCurrencyId> BasicCurrencyExtended<T::AccountId> for SettCurrency<T, GetCurrencyId>
@@ -638,6 +681,14 @@ where
 
 	fn slash_reserved(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
 		<Module<T> as ReservableSettCurrency<T::AccountId>>::slash_reserved(GetCurrencyId::get(), who, value)
+	}
+	
+	fn mint(who: &T::AccountId, value: Self::Balance) -> result::Result<(), &'static str>{
+		<Module<T> as ReservableSettCurrency<T::AccountId>>::mint(GetCurrencyId::get(), who, value)
+	}
+
+	fn burn(who: &T::AccountId, value: Self::Balance) -> result::Result<(), &'static str>{
+		<Module<T> as ReservableSettCurrency<T::AccountId>>::burn(GetCurrencyId::get(), who, value)
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
@@ -809,6 +860,14 @@ where
 	fn slash_reserved(who: &AccountId, value: Self::Balance) -> Self::Balance {
 		let (_, gap) = Currency::slash_reserved(who, value);
 		gap
+	}
+
+	fn mint(who: &AccountId, value: Self::Balance,) -> result::Result<(), &'static str>{
+		Currency::mint(who, value)
+	}
+
+	fn burn(who: &AccountId, value: Self::Balance,) -> result::Result<(), &'static str>{
+		Currency::burn(who, value)
 	}
 
 	fn reserved_balance(who: &AccountId) -> Self::Balance {
