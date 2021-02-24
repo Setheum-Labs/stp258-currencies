@@ -35,7 +35,7 @@ sp-runtime = { default-features = false, optional = true, version = '3.0.0' }
 sp-core = { default-features = false, version = '3.0.0' }
 sp-io = { default-features = false, version = '3.0.0' }
 orml-tokens = { default-features = false, version = '0.4.0' }
-pallet-assets = "3.0.0"
+pallet-assets = { default-features = false, version = '3.0.0' }
 pallet-balances = "3.0.0"
 clear_on_drop = { version = "0.2.4", features = ["no_cc"] }	# https://github.com/paritytech/substrate/issues/4179
 
