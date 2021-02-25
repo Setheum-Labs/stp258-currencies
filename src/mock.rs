@@ -5,8 +5,8 @@
 use crate::{Module, Trait};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
 use frame_system as system;
-use orml_traits::parameter_type_with_key;
 use pallet_balances;
+use orml_traits::parameter_type_with_key;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
