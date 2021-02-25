@@ -229,32 +229,6 @@ fn lockable_sett_currency_should_work() {
 }
 
 #[test]
-fn vesting_sett_currency_should_work() {
-	ExtBuilder::default()
-		.one_hundred_for_alice_n_bob()
-		.build()
-		.execute_with(|| {
-			assert_ok!(Stp258::add_vesting_schedule(SETT_USD_ID, &ALICE, 50));
-			assert_eq!(Tokens::locked(&ALICE, SETT_USD_ID).per_block(), 1);
-			assert_ok!(Stp258::add_vesting_schedule(SETT_USD_ID, &ALICE, 50));
-			assert_eq!(PalletBalances::locked(&ALICE).per_block(), 1);
-		});
-}
-
-#[test]
-fn vesting_native_currency_should_work() {
-	ExtBuilder::default()
-		.one_hundred_for_alice_n_bob()
-		.build()
-		.execute_with(|| {
-			assert_ok!(Stp258::add_vesting_schedule(DNAR, &ALICE, 50));
-			assert_eq!(Tokens::locked(&ALICE, DNAR).per_block(), 1);
-			assert_ok!(Stp258::add_vesting_schedule(DNAR, &ALICE, 50));
-			assert_eq!(PalletBalances::locked(&ALICE).per_block(), 1);
-		});
-}
-
-#[test]
 fn reservable_sett_currency_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
