@@ -55,6 +55,7 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
 use orml_traits::{
 	account::MergeAccount,
+	parameter_type_with_key,
 	arithmetic::{Signed, SimpleArithmetic},
 	BalanceStatus, BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, BasicReservableCurrency,
 	LockIdentifier, MultiCurrency as SettCurrency, MultiCurrencyExtended as ExtendedSettCurrency, 
