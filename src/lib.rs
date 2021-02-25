@@ -46,269 +46,291 @@ use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency as PalletCurrency, ExistenceRequirement, Get, LockableCurrency as PalletLockableCurrency,
-		ReservableCurrency as PalletReservableCurrency, WithdrawReasons,
+		Currency as PalletCurrency, 
+		ExistenceRequirement, Get, 
+		LockableCurrency as PalletLockableCurrency,
+		ReservableCurrency as PalletReservableCurrency, 
+		WithdrawReasons,
 	},
+	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-
 use orml_traits::{
 	account::MergeAccount,
 	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, BasicReservableCurrency,
-	LockIdentifier, MultiCurrency as SettCurrency, MultiCurrencyExtended as ExtendedSettCurrency, 
-	MultiLockableCurrency as LockableSettCurrency, MultiReservableCurrency as ReservableSettCurrency,
+	BalanceStatus, 
+	BasicCurrency, 
+	BasicCurrencyExtended, 
+	BasicLockableCurrency, 
+	BasicReservableCurrency,
+	LockIdentifier, 
+	MultiCurrency as SettCurrency, 
+	MultiCurrencyExtended as ExtendedSettCurrency, 
+	MultiLockableCurrency as LockableSettCurrency, 
+	MultiReservableCurrency as ReservableSettCurrency,
 };
-
 use orml_utilities::with_transaction_result;
 use sp_runtime::{
 	traits::{CheckedSub, MaybeSerializeDeserialize, StaticLookup, Zero},
-	DispatchError, DispatchResult,
+	DispatchError, 
+	DispatchResult,
 };
 use sp_std::{
 	convert::{TryFrom, TryInto},
 	fmt::Debug,
 	marker, result,
 };
-use super::*;
 
-#[cfg(test)]
 mod mock;
-
-#[cfg(test)]
 mod tests;
 
-/// Expected price oracle interface. `fetch_price` must return the amount of SettCurrency exchanged for the tracked value.
-pub trait FetchPrice<CurrencyId> {
-	/// Fetch the current price.
-	fn fetch_price() -> CurrencyId;
-}
+pub use module::*;
 
-pub trait WeightInfo {
-	fn transfer_non_native_currency() -> Weight;
-	fn transfer_native_currency() -> Weight;
-	fn update_balance_non_native_currency() -> Weight;
-	fn update_balance_native_currency_creating() -> Weight;
-	fn update_balance_native_currency_killing() -> Weight;
-}
+#[frame_support::pallet]
+pub mod module {
+	use super::*;
 
-pub(crate) type BalanceOf<T> = 
-	<<T as Config>::SettCurrency as SettCurrency<<T as frame_system::Config>::AccountId>>::Balance;
-pub(crate) type CurrencyIdOf<T> =
-	<<T as Config>::SettCurrency as SettCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
-
-pub(crate) type AmountOf<T> =
-	<<T as Config>::SettCurrency as ExtendedSettCurrency<<T as frame_system::Config>::AccountId>>::Amount;
-
-/// The pallet's configuration trait.
-pub trait Config: frame_system::Config {
-	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
-	
-	/// The amount of SettCurrency necessary to buy the tracked value. (e.g., 1_100 for 1$)
-	type SettCurrencyPrice: FetchPrice<CurrencyId>;
-
-	/// The amount of SettCurrency that are meant to track the value. Example: A value of 1_000 when tracking
-	/// Dollars means that the SettCurrency will try to maintain a price of 1_000 SettCurrency for 1$.
-	type BaseUnit: Get<CurrencyId>;
-	
-	type SettCurrency: MergeAccount<Self::AccountId>
-		+ ExtendedSettCurrency<Self::AccountId>
-		+ LockableSettCurrency<Self::AccountId>
-		+ ReservableSettCurrency<Self::AccountId>;
-	type NativeCurrency: BasicCurrencyExtended<Self::AccountId, Balance = BalanceOf<Self>, Amount = AmountOf<Self>>
-		+ BasicLockableCurrency<Self::AccountId, Balance = BalanceOf<Self>>
-		+ BasicReservableCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
-	type GetNativeCurrencyId: Get<CurrencyIdOf<Self>>;
-
-    /// The initial supply of SettCurrency.
-	type InitialSupply: Get<CurrencyId>;
-    
-    /// The minimum amount of SettCurrency in circulation.
-	/// Must be lower than `InitialSupply`.
-	type MinimumSupply: Get<CurrencyId>;
-}
-
-decl_storage! {
-	trait Store for Module<T: Config> as Stp258 {
-		/// The total amount of SettCurrency in circulation.
-        SettCurrencySupply get(fn settcurrency_supply): Get<CurrencyId> = 0;
+	/// Expected price oracle interface. `fetch_price` must return the amount of SettCurrency exchanged for the tracked value.
+	pub trait FetchPrice<CurrencyId> {
+		/// Fetch the current price.
+		fn fetch_price() -> CurrencyId;
 	}
 
-	add_extra_genesis {
-		/// The shareholders to initialize the SettCurrencys with. 
-		/// Shares are basically SettPay Slots. The Shares are the entities that receive newly minted settcurrencies/stablecoins.
-		config(shareholders):
-			Vec<(T::AccountId, u64)>;
-		build(|config: &GenesisConfig<T>| {
-			assert!(
-				T::MinimumSupply::get() < T::InitialSupply::get(),
-				"initial settcurrency supply needs to be greater than the minimum"
-			);
-
-			assert!(!config.shareholders.is_empty(), "need at least one shareholder");
-			// TODO: make sure shareholders are unique?
-
-			// Hand out the initial settcurrency supply to the shareholders.
-			<Module<T>>::hand_out_settcurrency(&config.shareholders, T::InitialSupply::get(), <Module<T>>::settcurrency_supply(currency_id))
-				.expect("initialization handout should not fail");
-
-			// Store the shareholders with their shares.
-			<Shares<T>>::put(&config.shareholders);
-		});
+	pub trait WeightInfo {
+		fn transfer_non_native_currency() -> Weight;
+		fn transfer_native_currency() -> Weight;
+		fn update_balance_non_native_currency() -> Weight;
+		fn update_balance_native_currency_creating() -> Weight;
+		fn update_balance_native_currency_killing() -> Weight;
 	}
-}
 
-decl_event!(
-	pub enum Event<T> where
-		<T as frame_system::Config>::AccountId,
-		Amount = AmountOf<T>,
-		Balance = BalanceOf<T>,
-		CurrencyId = CurrencyIdOf<T>
-	{
-		/// Currency transfer success. [currency_id, from, to, amount]
-		Transferred(CurrencyId, AccountId, AccountId, Balance),
-		/// Update balance success. [currency_id, who, amount]
-		BalanceUpdated(CurrencyId, AccountId, Amount),
-		/// Burn success, [currency_id, who, amount]
-		Burned(CurrencyId, AccountId, Balance),
-		/// Asset Burn success, [currency_id, who, amount]
-		BurnedAsset(CurrencyId, AccountId, Balance),
-		/// Deposit success. [currency_id, who, amount]
-		Deposited(CurrencyId, AccountId, Balance),
-		/// Mint success, [currency_id, who, amount]
-		Minted(CurrencyId, AccountId, Balance),
-		/// Asset Mint success, [currency_id, who, amount]
-		MintedAsset(CurrencyId, AccountId, Balance),
-		/// Withdraw success. [currency_id, who, amount]
-		Withdrawn(CurrencyId, AccountId, Balance),
-	}
-);
+	pub(crate) type BalanceOf<T> = 
+		<<T as Config>::SettCurrency as SettCurrency<<T as frame_system::Config>::AccountId>>::Balance;
+	pub(crate) type CurrencyIdOf<T> =
+		<<T as Config>::SettCurrency as SettCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
+	pub(crate) type AmountOf<T> =
+		<<T as Config>::SettCurrency as ExtendedSettCurrency<<T as frame_system::Config>::AccountId>>::Amount;
 
-decl_error! {
-	/// Error for stp258 module.
-	pub enum Error for Module<T: Config> {
-		/// Unable to convert the Amount type into Balance.
-		AmountIntoBalanceFailed,
-		/// Balance is too low.
-		BalanceTooLow,
-		/// While trying to increase the balance for an account, it overflowed.
-		BalanceOverflow,
-		/// An arithmetic operation caused an overflow.
-		GenericOverflow,
-		/// An arithmetic operation caused an underflow.
-		GenericUnderflow,
-		/// While trying to increase the Supply, it overflowed.
-		SettCurrencySupplyOverflow,
-		/// While trying to increase the Supply, it overflowed.
-		SettCurrencySupplyUnderflow,
-		/// While trying to increase the Supply, it overflowed.
-		SupplyOverflow,
-		/// Something went very wrong and the price of the currency is zero.
-		ZeroPrice,
-	}
-}
-
-decl_module! {
-	/// The pallet's dispatchable functions.
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
-		type Error = Error<T>;
-
-		const NativeCurrencyId: CurrencyIdOf<T> = T::GetNativeCurrencyId::get();
-		const ReserveAsset: CurrencyIdOf<T> = T::GetNativeCurrencyId::get();
-
-		/// The amount of SettCurrencys that represent 1 external value (e.g., 1$).
-		const BaseUnit: CurrencyIdOf<T> = T::BaseUnit::get();
-
-		/// The minimum amount of SettCurrency that will be in circulation.
-		const MinimumSupply: CurrencyIdOf<T> = T::MinimumSupply::get();
+	/// The pallet's configuration trait.
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// The overarching event type.
+		type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 		
-		fn deposit_event() = default;
+		/// The amount of SettCurrency necessary to buy the tracked value. (e.g., 1_100 for 1$)
+		type SettCurrencyPrice: FetchPrice<CurrencyId>;
 
-		/// Transfer some balance to another account under `currency_id`.
-		///
-		/// The dispatch origin for this call must be `Signed` by the transactor.
-		///
-		/// # <weight>
-		/// - Preconditions:
-		/// 	- T::SettCurrency is orml_tokens
-		///		- T::NativeCurrency is pallet_balances
-		/// - Complexity: `O(1)`
-		/// - Db reads: 5
-		/// - Db writes: 2
-		/// -------------------
-		/// Base Weight:
-		///		- non-native currency: 90.23 µs
-		///		- native currency in worst case: 70 µs
-		/// # </weight>
-		#[weight = T::WeightInfo::transfer_non_native_currency()]
-		pub fn transfer(
-			origin,
-			dest: <T::Lookup as StaticLookup>::Source,
-			currency_id: CurrencyIdOf<T>,
-			#[compact] amount: BalanceOf<T>,
-		) {
-			let from = ensure_signed(origin)?;
-			let to = T::Lookup::lookup(dest)?;
-			<Self as SettCurrency<T::AccountId>>::transfer(currency_id, &from, &to, amount)?;
+		/// The amount of SettCurrency that are meant to track the value. Example: A value of 1_000 when tracking
+		/// Dollars means that the SettCurrency will try to maintain a price of 1_000 SettCurrency for 1$.
+		type BaseUnit: Get<CurrencyId>;
+		
+		type SettCurrency: MergeAccount<Self::AccountId>
+			+ ExtendedSettCurrency<Self::AccountId>
+			+ LockableSettCurrency<Self::AccountId>
+			+ ReservableSettCurrency<Self::AccountId>;
+
+		type NativeCurrency: BasicCurrencyExtended<Self::AccountId, Balance = BalanceOf<Self>, Amount = AmountOf<Self>>
+			+ BasicLockableCurrency<Self::AccountId, Balance = BalanceOf<Self>>
+			+ BasicReservableCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
+
+		#[pallet::constant]
+		type GetNativeCurrencyId: Get<CurrencyIdOf<Self>>;
+
+		/// The initial supply of SettCurrency.
+		type InitialSupply: Get<CurrencyId>;
+		
+		/// The minimum amount of SettCurrency in circulation.
+		/// Must be lower than `InitialSupply`.
+		type MinimumSupply: Get<CurrencyId>;
+
+		/// Weight information for extrinsics in this module.
+		type WeightInfo: WeightInfo;
+	}
+
+		#[pallet::error]
+		/// Error for stp258 module.
+		pub enum Error<T> {
+			/// Unable to convert the Amount type into Balance.
+			AmountIntoBalanceFailed,
+			/// Balance is too low.
+			BalanceTooLow,
+			/// While trying to increase the balance for an account, it overflowed.
+			BalanceOverflow,
+			/// An arithmetic operation caused an overflow.
+			GenericOverflow,
+			/// An arithmetic operation caused an underflow.
+			GenericUnderflow,
+			/// While trying to increase the Supply, it overflowed.
+			SettCurrencySupplyOverflow,
+			/// While trying to increase the Supply, it overflowed.
+			SettCurrencySupplyUnderflow,
+			/// While trying to increase the Supply, it overflowed.
+			SupplyOverflow,
+			/// Something went very wrong and the price of the currency is zero.
+			ZeroPrice,
 		}
 
-		/// Transfer some native currency to another account.
-		///
-		/// The dispatch origin for this call must be `Signed` by the transactor.
-		///
-		/// # <weight>
-		/// - Preconditions:
-		/// 	- T::SettCurrency is orml_tokens
-		///		- T::NativeCurrency is pallet_balances
-		/// - Complexity: `O(1)`
-		/// - Db reads: 2 * `Accounts`
-		/// - Db writes: 2 * `Accounts`
-		/// -------------------
-		/// Base Weight: 70 µs
-		/// # </weight>
-		#[weight = T::WeightInfo::transfer_native_currency()]
-		pub fn transfer_native_currency(
-			origin,
-			dest: <T::Lookup as StaticLookup>::Source,
-			#[compact] amount: BalanceOf<T>,
-		) {
-			let from = ensure_signed(origin)?;
-			let to = T::Lookup::lookup(dest)?;
-			T::NativeCurrency::transfer(&from, &to, amount)?;
+		#[pallet::event]
+		#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+		#[pallet::metadata(T::AccountId = "AccountId")]
+		#[pallet::metadata(T::Amount = "AmountOf")]
+		#[pallet::metadata(T::CurrencyId = "CurrencyIdOf")]
+		pub enum Event<T: Config> {
+			/// Currency transfer success. [currency_id, from, to, amount]
+			Transferred(CurrencyIdOf<T>, T::AccountId, T::AccountId, BalanceOf<T>),
+			/// Update balance success. [currency_id, who, amount]
+			BalanceUpdated(CurrencyIdOf<T>, T::AccountId, AmountOf<T>),
+			/// Burn success, [currency_id, who, amount]
+			Burned(CurrencyIdOf<T>, T::AccountId, AmountOf<T>),
+			/// Asset Burn success, [currency_id, who, amount]
+			BurnedAsset(CurrencyIdOf<T>, T::AccountId, AmountOf<T>),
+			/// Deposit success. [currency_id, who, amount]
+			Deposited(CurrencyIdOf<T>, T::AccountId, AmountOf<T>),
+			/// Mint success, [currency_id, who, amount]
+			Minted(CurrencyIdOf<T>, T::AccountId, AmountOf<T>),
+			/// Asset Mint success, [currency_id, who, amount]
+			MintedAsset(CurrencyIdOf<T>, T::AccountId, AmountOf<T>),
+			/// Withdraw success. [currency_id, who, amount]
+			Withdrawn(CurrencyIdOf<T>, T::AccountId, AmountOf<T>),
+		}
+		
 
-			Self::deposit_event(RawEvent::Transferred(T::GetNativeCurrencyId::get(), from, to, amount));
+		#[pallet::storage]
+		#[pallet::getter(fn settcurrency_supply)]
+		pub type TotalIssuance<T: Config<I>, I: 'static = ()> = 
+				StorageValue<_, CurrencyIdOf<T>, AmountOf<T>, ValueQuery>;
+
+		decl_storage! {
+			trait Store for Module<T: Config> as Stp258 {
+				/// The total amount of SettCurrency in circulation.
+				SettCurrencySupply get(fn settcurrency_supply): Get<CurrencyId> = 0;
+			}
+
+			add_extra_genesis {
+				/// The shareholders to initialize the SettCurrencys with. 
+				/// Shares are basically SettPay Slots. The Shares are the entities that receive newly minted settcurrencies/stablecoins.
+				config(shareholders):
+					Vec<(T::AccountId, u64)>;
+				build(|config: &GenesisConfig<T>| {
+					assert!(
+						T::MinimumSupply::get() < T::InitialSupply::get(),
+						"initial settcurrency supply needs to be greater than the minimum"
+					);
+
+					assert!(!config.shareholders.is_empty(), "need at least one shareholder");
+					// TODO: make sure shareholders are unique?
+
+					// Hand out the initial settcurrency supply to the shareholders.
+					<Module<T>>::hand_out_settcurrency(&config.shareholders, T::InitialSupply::get(), <Module<T>>::settcurrency_supply(currency_id))
+						.expect("initialization handout should not fail");
+
+					// Store the shareholders with their shares.
+					<Shares<T>>::put(&config.shareholders);
+				});
+			}
 		}
 
-		/// update amount of account `who` under `currency_id`.
-		///
-		/// The dispatch origin of this call must be _Root_.
-		///
-		/// # <weight>
-		/// - Preconditions:
-		/// 	- T::SettCurrency is orml_tokens
-		///		- T::NativeCurrency is pallet_balances
-		/// - Complexity: `O(1)`
-		/// - Db reads:
-		/// 	- non-native currency: 5
-		/// - Db writes:
-		/// 	- non-native currency: 2
-		/// -------------------
-		/// Base Weight:
-		/// 	- non-native currency: 66.24 µs
-		///		- native currency and killing account: 26.33 µs
-		///		- native currency and create account: 27.39 µs
-		/// # </weight>
-		#[weight = T::WeightInfo::update_balance_non_native_currency()]
-		pub fn update_balance(
-			origin,
-			who: <T::Lookup as StaticLookup>::Source,
-			currency_id: CurrencyIdOf<T>,
-			amount: AmountOf<T>,
-		) {
-			ensure_root(origin)?;
-			let dest = T::Lookup::lookup(who)?;
-			<Self as ExtendedSettCurrency<T::AccountId>>::update_balance(currency_id, &dest, amount)?;
+	decl_module! {
+		/// The pallet's dispatchable functions.
+		pub struct Module<T: Config> for enum Call where origin: T::Origin {
+			type Error = Error<T>;
+
+			const NativeCurrencyId: CurrencyIdOf<T> = T::GetNativeCurrencyId::get();
+			const ReserveAsset: CurrencyIdOf<T> = T::GetNativeCurrencyId::get();
+
+			/// The amount of SettCurrencys that represent 1 external value (e.g., 1$).
+			const BaseUnit: CurrencyIdOf<T> = T::BaseUnit::get();
+
+			/// The minimum amount of SettCurrency that will be in circulation.
+			const MinimumSupply: CurrencyIdOf<T> = T::MinimumSupply::get();
+			
+			fn deposit_event() = default;
+
+			/// Transfer some balance to another account under `currency_id`.
+			///
+			/// The dispatch origin for this call must be `Signed` by the transactor.
+			///
+			/// # <weight>
+			/// - Preconditions:
+			/// 	- T::SettCurrency is orml_tokens
+			///		- T::NativeCurrency is pallet_balances
+			/// - Complexity: `O(1)`
+			/// - Db reads: 5
+			/// - Db writes: 2
+			/// -------------------
+			/// Base Weight:
+			///		- non-native currency: 90.23 µs
+			///		- native currency in worst case: 70 µs
+			/// # </weight>
+			#[weight = T::WeightInfo::transfer_non_native_currency()]
+			pub fn transfer(
+				origin,
+				dest: <T::Lookup as StaticLookup>::Source,
+				currency_id: CurrencyIdOf<T>,
+				#[compact] amount: BalanceOf<T>,
+			) {
+				let from = ensure_signed(origin)?;
+				let to = T::Lookup::lookup(dest)?;
+				<Self as SettCurrency<T::AccountId>>::transfer(currency_id, &from, &to, amount)?;
+			}
+
+			/// Transfer some native currency to another account.
+			///
+			/// The dispatch origin for this call must be `Signed` by the transactor.
+			///
+			/// # <weight>
+			/// - Preconditions:
+			/// 	- T::SettCurrency is orml_tokens
+			///		- T::NativeCurrency is pallet_balances
+			/// - Complexity: `O(1)`
+			/// - Db reads: 2 * `Accounts`
+			/// - Db writes: 2 * `Accounts`
+			/// -------------------
+			/// Base Weight: 70 µs
+			/// # </weight>
+			#[weight = T::WeightInfo::transfer_native_currency()]
+			pub fn transfer_native_currency(
+				origin,
+				dest: <T::Lookup as StaticLookup>::Source,
+				#[compact] amount: BalanceOf<T>,
+			) {
+				let from = ensure_signed(origin)?;
+				let to = T::Lookup::lookup(dest)?;
+				T::NativeCurrency::transfer(&from, &to, amount)?;
+
+				Self::deposit_event(RawEvent::Transferred(T::GetNativeCurrencyId::get(), from, to, amount));
+			}
+
+			/// update amount of account `who` under `currency_id`.
+			///
+			/// The dispatch origin of this call must be _Root_.
+			///
+			/// # <weight>
+			/// - Preconditions:
+			/// 	- T::SettCurrency is orml_tokens
+			///		- T::NativeCurrency is pallet_balances
+			/// - Complexity: `O(1)`
+			/// - Db reads:
+			/// 	- non-native currency: 5
+			/// - Db writes:
+			/// 	- non-native currency: 2
+			/// -------------------
+			/// Base Weight:
+			/// 	- non-native currency: 66.24 µs
+			///		- native currency and killing account: 26.33 µs
+			///		- native currency and create account: 27.39 µs
+			/// # </weight>
+			#[weight = T::WeightInfo::update_balance_non_native_currency()]
+			pub fn update_balance(
+				origin,
+				who: <T::Lookup as StaticLookup>::Source,
+				currency_id: CurrencyIdOf<T>,
+				amount: AmountOf<T>,
+			) {
+				ensure_root(origin)?;
+				let dest = T::Lookup::lookup(who)?;
+				<Self as ExtendedSettCurrency<T::AccountId>>::update_balance(currency_id, &dest, amount)?;
+			}
 		}
 	}
 }
