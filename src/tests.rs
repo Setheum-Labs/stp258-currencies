@@ -59,6 +59,33 @@ fn sett_currency_extended_should_work() {
 }
 
 #[test]
+fn sett_currency_minting_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| { 
+			assert_ok!(Stp258::mint(SETT_USD_ID, &ALICE, 10));
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 110);
+			assert_ok!(Stp258::mint(SETT_USD_ID, &BOB, 5));
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &BOB), 105);
+		});
+}
+
+#[test]
+
+fn sett_currency_burning_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			assert_ok!(Stp258::burn(SETT_USD_ID, &ALICE, 10));
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 90);
+			assert_ok!(Stp258::burn(SETT_USD_ID, &BOB, 5));
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &BOB), 95);
+		});
+}
+
+#[test]
 fn native_currency_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
@@ -93,6 +120,33 @@ fn native_currency_extended_should_work() {
 				10
 			));
 			assert_eq!(NativeCurrency::free_balance(&ALICE), 120);
+		});
+}
+
+#[test]
+fn native_currency_minting_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| { 
+			assert_ok!(Stp258::mint(DNAR, &ALICE, 10));
+			assert_eq!(Stp258::free_balance(DNAR, &ALICE), 110);
+			assert_ok!(Stp258::mint(DNAR, &BOB, 5));
+			assert_eq!(Stp258::free_balance(DNAR, &BOB), 105);
+		});
+}
+
+#[test]
+
+fn native_currency_burning_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			assert_ok!(Stp258::burn(DNAR, &ALICE, 10));
+			assert_eq!(Stp258::free_balance(DNAR, &ALICE), 90);
+			assert_ok!(Stp258::burn(DNAR, &BOB, 5));
+			assert_eq!(Stp258::free_balance(DNAR, &BOB), 95);
 		});
 }
 
@@ -222,9 +276,9 @@ fn basic_currency_adapting_pallet_balances_lockable() {
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
-			assert_ok!(AdaptedBasicCurrency::set_lock(ID_1, &ALICE, 10));
+			assert_ok!(AdaptedBasicCurrency::set_lock(DNAR, &ALICE, 10));
 			assert_eq!(PalletBalances::locks(&ALICE).len(), 1);
-			assert_ok!(AdaptedBasicCurrency::remove_lock(ID_1, &ALICE));
+			assert_ok!(AdaptedBasicCurrency::remove_lock(DNAR, &ALICE));
 			assert_eq!(PalletBalances::locks(&ALICE).len(), 0);
 		});
 }
@@ -268,7 +322,7 @@ fn update_balance_call_fails_if_not_root_origin() {
 		);
 	});
 }
-
+DNAR
 #[test]
 fn call_event_should_work() {
 	ExtBuilder::default()
