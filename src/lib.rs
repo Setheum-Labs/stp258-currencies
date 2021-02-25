@@ -420,7 +420,7 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 		peg_price: FetchPrice<CurrencyId>,
 	) -> DispatchResult {
 		if currency_id == T::GetNativeCurrencyId::get() {
-			debug::warn!("The Native Currency: {} Cannot Be BasketSettCurrency", currency_id);
+			debug::warn!("The Native Currency: {} Cannot Be BasketTokenSettCurrency", currency_id);
             return Err(http::Error::Unknown);
 		} else {
 			T::SettCurrency::basket_token(peg_price, currency_id)
