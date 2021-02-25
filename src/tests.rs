@@ -223,8 +223,34 @@ fn lockable_sett_currency_should_work() {
 		.execute_with(|| {
 			assert_ok!(Stp258::set_lock(ID_1, SETT_USD_ID, &ALICE, 50));
 			assert_eq!(Tokens::locks(&ALICE, SETT_USD_ID).len(), 1);
-			assert_ok!(Stp258::set_lock(ID_1, NATIVE_SETT_USD_ID, &ALICE, 50));
+			assert_ok!(Stp258::set_lock(ID_1, SETT_USD_ID, &ALICE, 50));
 			assert_eq!(PalletBalances::locks(&ALICE).len(), 1);
+		});
+}
+
+#[test]
+fn vesting_sett_currency_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			assert_ok!(Stp258::add_vesting_schedule(SETT_USD_ID, &ALICE, 50));
+			assert_eq!(Tokens::locked(&ALICE, SETT_USD_ID).per_block(), 1);
+			assert_ok!(Stp258::add_vesting_schedule(SETT_USD_ID, &ALICE, 50));
+			assert_eq!(PalletBalances::locked(&ALICE).per_block(), 1);
+		});
+}
+
+#[test]
+fn vesting_native_currency_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			assert_ok!(Stp258::add_vesting_schedule(DNAR, &ALICE, 50));
+			assert_eq!(Tokens::locked(&ALICE, DNAR).per_block(), 1);
+			assert_ok!(Stp258::add_vesting_schedule(DNAR, &ALICE, 50));
+			assert_eq!(PalletBalances::locked(&ALICE).per_block(), 1);
 		});
 }
 
@@ -234,15 +260,15 @@ fn reservable_sett_currency_should_work() {
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
-			assert_eq!(Stp258::total_issuance(NATIVE_SETT_USD_ID), 200);
+			assert_eq!(Stp258::total_issuance(SETT_USD_ID), 200);
 			assert_eq!(Stp258::total_issuance(SETT_USD_ID), 200);
 			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 100);
 			assert_eq!(NativeCurrency::free_balance(&ALICE), 100);
 
 			assert_ok!(Stp258::reserve(SETT_USD_ID, &ALICE, 30));
-			assert_ok!(Stp258::reserve(NATIVE_SETT_USD_ID, &ALICE, 40));
+			assert_ok!(Stp258::reserve(SETT_USD_ID, &ALICE, 40));
 			assert_eq!(Stp258::reserved_balance(SETT_USD_ID, &ALICE), 30);
-			assert_eq!(Stp258::reserved_balance(NATIVE_SETT_USD_ID, &ALICE), 40);
+			assert_eq!(Stp258::reserved_balance(SETT_USD_ID, &ALICE), 40);
 		});
 }
 
