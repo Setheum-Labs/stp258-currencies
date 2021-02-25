@@ -49,7 +49,6 @@ use frame_support::{
 		Currency as PalletCurrency, ExistenceRequirement, Get, LockableCurrency as PalletLockableCurrency,
 		ReservableCurrency as PalletReservableCurrency, WithdrawReasons,
 	},
-	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
