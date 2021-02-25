@@ -19,7 +19,8 @@
 //!
 //! The stp258 module provides implementations for following traits.
 //!
-//! - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system.
+//! - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system 
+//! that includes `basket_token`.
 //! - `ExtendedSettCurrency` - Extended `SettCurrency` with additional helper
 //!   types and methods, like updating balance
 //! by a given signed integer amount.
@@ -407,6 +408,22 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 			T::NativeCurrency::burn(who, amount)
 		} else {
 			T::SettCurrency::burn(currency_id, who, amount)
+		}
+	}
+
+	/// The Pegs of the BasketToken/BasketSettCurrency.
+	/// To form the BasketToken based on the `Price` of the - 
+	/// respective currencies in peg position.
+	/// The `NativeCurrency` Cannot Be `BasketSettCurrency`.
+	fn basket_token(
+		currency_id: Self::CurrencyId,
+		peg_price: FetchPrice<CurrencyId>,
+	) -> DispatchResult {
+		if currency_id == T::GetNativeCurrencyId::get() {
+			debug::warn!("The Native Currency: {} Cannot Be BasketSettCurrency", currency_id);
+            return Err(http::Error::Unknown);
+		} else {
+			T::SettCurrency::basket_token(peg_price, currency_id)
 		}
 	}
 }
