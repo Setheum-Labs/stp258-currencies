@@ -20,7 +20,7 @@
 //! The stp258 module provides implementations for following traits.
 //!
 //! - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system 
-//! that includes `basket_token`.
+//! that includes `basket_token` and `vesting_schedule` for `SettCurrency`.
 //! - `ExtendedSettCurrency` - Extended `SettCurrency` with additional helper
 //!   types and methods, like updating balance
 //! by a given signed integer amount.
@@ -51,7 +51,7 @@ use frame_support::{
 		ExistenceRequirement, Get, 
 		LockableCurrency as PalletLockableCurrency,
 		ReservableCurrency as PalletReservableCurrency, 
-		WithdrawReasons,
+		WithdrawReasons, VestingSchedule, 
 	},
 	weights::Weight,
 };
@@ -274,6 +274,8 @@ pub mod module {
 impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 	type CurrencyId = CurrencyIdOf<T>;
 	type Balance = BalanceOf<T>;
+	/// The quantity used to denote time; usually just a `BlockNumber`.
+	type Moment;
 
 	fn minimum_balance(currency_id: Self::CurrencyId) -> Self::Balance {
 		if currency_id == T::GetNativeCurrencyId::get() {
@@ -426,6 +428,37 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 			T::SettCurrency::basket_token(peg_price, currency_id)
 		}
 	}
+
+	/// Get the amount that is currently being vested and cannot be transferred out of this account.
+	/// Returns `None` if the account has no vesting schedule.
+	fn vesting_balance(currency_id: Self::CurrencyId, who: &T::AccountId) -> Self::Balance
+
+	/// Adds a vesting schedule to a given account.
+	///
+	/// If there already exists a vesting schedule for the given account, an `Err` is returned
+	/// and nothing is updated.
+	///
+	/// Is a no-op if the amount to be vested is zero.
+	///
+	/// NOTE: This doesn't alter the free balance of the account.
+	fn add_vesting_schedule(
+		currency_id: Self::CurrencyId,
+		who: &AccountId,
+		locked: <Self::Currency as Currency<T, GetCurrencyId, AccountId>>::Balance,
+		per_block: <Self::Currency as Currency<T, GetCurrencyId, AccountId>>::Balance,
+		starting_block: Self::Moment,
+	) -> DispatchResult{
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::add_vesting_schedule(who, by_amount)?;
+		} else {
+			T::SettCurrency::add_vesting_schedule(currency_id, who, by_amount)?;
+		}
+	}
+
+	/// Remove a vesting schedule for a given account.
+	///
+	/// NOTE: This doesn't alter the free balance of the account.
+	fn remove_vesting_schedule(who: &AccountId);
 }
 
 impl<T: Config> ExtendedSettCurrency<T::AccountId> for Pallet<T> {
