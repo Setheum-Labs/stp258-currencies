@@ -48,25 +48,19 @@ use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency as PalletCurrency, 
-		ExistenceRequirement, Get, 
+		WithdrawReasons,
+		Currency as PalletCurrency, ensure,
+		ExistenceRequirement, Get, Parameter, 
 		LockableCurrency as PalletLockableCurrency,
 		ReservableCurrency as PalletReservableCurrency, 
-		WithdrawReasons,
 	},
 	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use orml_traits::{
-	account::MergeAccount,
-	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, 
-	BasicCurrency, 
-	BasicCurrencyExtended, 
-	BasicLockableCurrency, 
-	BasicReservableCurrency,
-	LockIdentifier, 
-	MultiCurrency as SettCurrency, 
+	account::MergeAccount, arithmetic::{Signed, SimpleArithmetic}, BalanceStatus, 
+	BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, 
+	BasicReservableCurrency, LockIdentifier, MultiCurrency as SettCurrency, 
 	MultiCurrencyExtended as ExtendedSettCurrency, 
 	MultiLockableCurrency as LockableSettCurrency, 
 	MultiReservableCurrency as ReservableSettCurrency,
