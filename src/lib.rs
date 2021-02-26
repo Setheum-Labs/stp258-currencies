@@ -58,15 +58,9 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use orml_traits::{
-	account::MergeAccount,
-	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, 
-	BasicCurrency, 
-	BasicCurrencyExtended, 
-	BasicLockableCurrency, 
-	BasicReservableCurrency,
-	LockIdentifier, 
-	MultiCurrency as SettCurrency, 
+	account::MergeAccount, arithmetic::{Signed, SimpleArithmetic}, BalanceStatus, 
+	BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, 
+	BasicReservableCurrency, LockIdentifier, MultiCurrency as SettCurrency, 
 	MultiCurrencyExtended as ExtendedSettCurrency, 
 	MultiLockableCurrency as LockableSettCurrency, 
 	MultiReservableCurrency as ReservableSettCurrency,
