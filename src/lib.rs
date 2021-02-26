@@ -48,11 +48,11 @@ use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency as PalletCurrency, 
-		ExistenceRequirement, Get, 
+		WithdrawReasons,
+		Currency as PalletCurrency, ensure,
+		ExistenceRequirement, Get, Parameter, 
 		LockableCurrency as PalletLockableCurrency,
 		ReservableCurrency as PalletReservableCurrency, 
-		WithdrawReasons,
 	},
 	weights::Weight,
 };
