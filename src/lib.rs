@@ -107,6 +107,39 @@ pub mod module {
 	pub(crate) type AmountOf<T> =
 		<<T as Config>::SettCurrency as ExtendedSettCurrency<<T as frame_system::Config>::AccountId>>::Amount;
 
+	/// Pending atomic swap operation.
+	#[derive(Clone, Eq, PartialEq, RuntimeDebug, Encode, Decode)]
+	pub struct PendingSwap<T: Config> {
+		/// Source of the swap.
+		pub source: T::AccountId,
+		/// Action of this swap.
+		pub action: T::SettSwap,
+		/// End block of the lock.
+		pub end_block: T::BlockNumber,
+	}
+
+	/// Hashed proof type.
+	pub type HashedProof = [u8; 32];
+
+	/// Definition of a pending atomic swap action. It contains the following three phrases:
+	///
+	/// - **Reserve**: reserve the resources needed for a swap. This is to make sure that **Claim**
+	/// succeeds with best efforts.
+	/// - **Claim**: claim any resources reserved in the first phrase.
+	/// - **Cancel**: cancel any resources reserved in the first phrase.
+	pub trait SettSwap<AccountId, T: Config> {
+		/// Reserve the resources needed for the swap, from the given `source`. The reservation is
+		/// allowed to fail. If that is the case, the the full swap creation operation is cancelled.
+		fn reserve(&self, currency_id: CurrencyIdOf<T>, source: &AccountId, value: Self::Balance) -> DispatchResult;
+		/// Claim the reserved resources, with `source` and `target`. Returns whether the claim
+		/// succeeds.
+		fn claim(&self, currency_id: CurrencyIdOf<T>, source: &AccountId, target: &AccountId, value: Self::Balance) -> bool;
+		/// Weight for executing the operation.
+		fn weight(&self) -> Weight;
+		/// Cancel the resources reserved in `source`.
+		fn cancel(&self, source: &AccountId, value: Self::Balance);
+	}
+
 	/// The pallet's configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -164,10 +197,28 @@ pub mod module {
 		SupplyOverflow,
 		/// Something went very wrong and the price of the currency is zero.
 		ZeroPrice,
+		/// Swap already exists.
+		AlreadyExist,
+		/// Swap proof is invalid.
+		InvalidProof,
+		/// Proof is too large.
+		ProofTooLarge,
+		/// Source does not match.
+		SourceMismatch,
+		/// Swap has already been claimed.
+		AlreadyClaimed,
+		/// Swap does not exist.
+		NotExist,
+		/// Claim action mismatch.
+		ClaimActionMismatch,
+		/// Duration has not yet passed for the swap to be cancelled.
+		DurationNotPassed,
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	#[pallet::metadata(T::AccountId = "AccountId")]
+	#[pallet::metadata(T::PendingSwap = "PendingSwap")]
 	pub enum Event<T: Config> {
 		/// Currency transfer success. [currency_id, from, to, amount]
 		Transferred(CurrencyIdOf<T>, T::AccountId, T::AccountId, BalanceOf<T>),
@@ -193,13 +244,30 @@ pub mod module {
 		/// Final argument indicates the destination balance type.
 		/// \[from, to, balance, destination_status\]
 		ReserveRepatriated(T::AccountId, T::AccountId, T::Balance, Status),
+		/// Swap created. \[account, proof, swap\]
+		NewSwap(T::AccountId, HashedProof, PendingSwap),
+		/// Swap claimed. The last parameter indicates whether the execution succeeds. 
+		/// \[account, proof, success\]
+		SwapClaimed(T::AccountId, HashedProof, bool),
+		/// Swap cancelled. \[account, proof\]
+		SwapCancelled(T::AccountId, HashedProof),
 	}
 
 	#[pallet::storage]
 	/// The total amount of SettCurrency in circulation.
 	#[pallet::getter(fn settcurrency_supply): Get<CurrencyId> = 0]
+	#[pallet::getter(fn pending_swaps)]
 	pub type SettCurrencySupply<T: Config> = 
 			StorageValue<_, CurrencyIdOf<T>, AmountOf<T>, ValueQuery>;
+	pub type PendingSwaps<T: Config> = StorageDoubleMap<
+		_,
+		hasher(twox_64_concat) T::AccountId,
+		hasher(blake2_128_concat) HashedProof,
+		currency_id: CurrencyIdOf<T>, 
+		value: BalanceOf<T>,
+		ValueQuery,
+	>;
+
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -270,6 +338,150 @@ pub mod module {
 			let dest = T::Lookup::lookup(who)?;
 				<Self as ExtendedSettCurrency<T::AccountId>>::update_balance(currency_id, &dest, amount)?;
 			Ok(().into())
+		}
+		/// Register a new atomic swap, declaring an intention to send funds from origin to target
+		/// on the current blockchain. The target can claim the fund using the revealed proof. If
+		/// the fund is not claimed after `duration` blocks, then the sender can cancel the swap.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// - `target`: Receiver of the atomic swap.
+		/// - `hashed_proof`: The blake2_256 hash of the secret proof.
+		/// - `balance`: Funds to be sent from origin.
+		/// - `duration`: Locked duration of the atomic swap. For safety reasons, it is recommended
+		///   that the revealer uses a shorter duration than the counterparty, to prevent the
+		///   situation where the revealer reveals the proof too late around the end block.
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1)
+		.saturating_add(40_000_000))
+		]
+		fn create_swap(
+			origin: OriginFor<T>,
+			target: T::AccountId,
+			currency_id: CurrencyIdOf<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			hashed_proof: HashedProof,
+			action: T::SettSwap,
+			duration: T::BlockNumber,
+		) -> DispatchResultWithPostInfo {
+			let source = ensure_signed(origin)?;
+			ensure!(
+				!PendingSwaps::<T>::contains_key(&target, hashed_proof),
+				Error::<T>::AlreadyExist
+			);
+
+			action.reserve(&source, currency_id, value)?;
+
+			let swap = PendingSwap {
+				source,
+				action,
+				currency_id,
+				value,
+				end_block: frame_system::Module::<T>::block_number() + duration,
+			};
+			PendingSwaps::<T>::insert(
+				target.clone(), 
+				hashed_proof.clone(), 
+				swap.clone(), 
+				currency_id.clone(), 
+				value.clone()
+			);
+
+			Self::deposit_event(
+				RawEvent::NewSwap(target, hashed_proof, swap)
+			);
+		}
+
+		/// Claim an atomic swap.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// - `proof`: Revealed proof of the claim.
+		/// - `action`: Action defined in the swap, it must match the entry in blockchain. Otherwise
+		///   the operation fails. This is used for weight calculation.
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1)
+		.saturating_add(40_000_000)
+		.saturating_add((proof.len() as Weight).saturating_mul(100))
+		.saturating_add(action.weight()))
+		]
+		fn claim_swap(
+			origin: OriginFor<T>,
+			target: T::AccountId,
+			action: T::SettSwap,
+			currency_id: CurrencyIdOf<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure!(
+				proof.len() <= T::ProofLimit::get() as usize,
+				Error::<T>::ProofTooLarge,
+			);
+
+			action.repatriate_reserved(currency_id, &source, self.value)?;
+
+			let target = ensure_signed(origin)?;
+			let hashed_proof = blake2_256(&proof);
+
+			let swap = PendingSwaps::<T>::get(&target, hashed_proof, currency_id: CurrencyIdOf<T>, value: BalanceOf<T>)
+				.ok_or(Error::<T>::InvalidProof)?;
+			ensure!(swap.action == action, Error::<T>::ClaimActionMismatch);
+
+			let succeeded = swap.action.claim(&swap.source, &target, currency_id, value);
+
+			PendingSwaps::<T>::remove(
+				target.clone(), 
+				hashed_proof.clone(), 
+				currency_id.clone(), 
+				value.clone()
+			);
+
+			Self::deposit_event(
+				RawEvent::SwapClaimed(target, hashed_proof, succeeded,)
+			);
+
+			Ok(())
+		}
+
+		/// Cancel an atomic swap. Only possible after the originally set duration has passed.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// - `target`: Target of the original atomic swap.
+		/// - `hashed_proof`: Hashed proof of the original atomic swap.
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1).saturating_add(40_000_000))]
+		fn cancel_swap(
+			origin: OriginFor<T>,
+			target: T::AccountId,
+			action: T::SettSwap,
+			currency_id: CurrencyIdOf<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			hashed_proof: HashedProof,
+		) {
+
+			action.unreserve(currency_id, &source, self.value)?;
+			
+			let source = ensure_signed(origin)?;
+
+			let swap = PendingSwaps::<T>::get(&target, hashed_proof)
+				.ok_or(Error::<T>::NotExist)?;
+			ensure!(
+				swap.source == source,
+				Error::<T>::SourceMismatch,
+			);
+			ensure!(
+				frame_system::Module::<T>::block_number() >= swap.end_block,
+				Error::<T>::DurationNotPassed,
+			);
+
+			swap.action.cancel(&swap.source);
+			PendingSwaps::<T>::remove(
+				target.clone(), 
+				hashed_proof.clone(), 
+				currency_id.clone(), 
+				value.clone()
+			);
+
+			Self::deposit_event(
+				RawEvent::SwapCancelled(target, hashed_proof)
+			);
 		}
 	}
 }
@@ -555,6 +767,37 @@ impl<T: Config> ReservableSettCurrency<T::AccountId> for Pallet<T> {
 	}
 }
 
+impl<T, GetCurrencyId> SettSwap<T::AccountId> for Pallet<T> {
+	fn reserve(&self, currency_id: Self::CurrencyId, source: &T::AccountId, value: Self::Balance) -> DispatchResult {
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::reserve(&source, self.value)
+		} else {
+			T::SettCurrency::reserve(currency_id, &source, self.value)
+		}
+	}
+
+	fn claim(&self, source: &AccountId, target: &AccountId, value: Self::Balance) -> bool {
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::repatriate_reserved(&source, &target, self.value, BalanceStatus::Free).is_ok()
+		} else {
+			T::SettCurrency::repatriate_reserved(currency_id, &source, self.value).is_ok()
+		}
+	}
+
+	fn weight(&self) -> Weight {
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	fn cancel(&self, source: &AccountId, value: Self::Balance) {
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::unreserve(&source, self.value)
+		} else {
+			T::SettCurrency::unreserve(currency_id, &source, self.value)
+		}
+		)
+	}
+}
+
 pub struct SettCurrency<T, GetCurrencyId>(marker::PhantomData<T>, marker::PhantomData<GetCurrencyId>);
 
 impl<T, GetCurrencyId> BasicCurrency<T::AccountId> for Currency<T, GetCurrencyId>
@@ -613,7 +856,7 @@ where
 	}
 }
 
-impl<T, GetCurrencyId> BasicCurrencyExtended<T::AccountId> for SettCurrency<T, GetCurrencyId>
+impl<T, GetCurrencyId> BasicCurrencyExtended<T::AccountId> for Currency<T, GetCurrencyId>
 where
 	T: Config,
 	GetCurrencyId: Get<CurrencyIdOf<T>>,
@@ -633,7 +876,7 @@ where
 	type Moment = T::BlockNumber;
 
 	fn set_lock(lock_id: LockIdentifier, who: &T::AccountId, amount: Self::Balance) -> DispatchResult {
-		<Pallet<T> as LocPalletkableSettCurrency<T::AccountId>>::set_lock(lock_id, GetCurrencyId::get(), who, amount)
+		<Pallet<T> as LockableSettCurrency<T::AccountId>>::set_lock(lock_id, GetCurrencyId::get(), who, amount)
 	}
 
 	fn extend_lock(lock_id: LockIdentifier, who: &T::AccountId, amount: Self::Balance) -> DispatchResult {
@@ -694,10 +937,38 @@ where
 	}
 }
 
+impl<T, GetCurrencyId> SettSwap<T::AccountId> for Currency<T, GetCurrencyId>
+where
+	T: Config,
+	GetCurrencyId: Get<CurrencyIdOf<T>>,
+{
+	fn reserve(&self, source: &AccountId, value: Self::Balance) -> DispatchResult {
+		<Pallet<T> as SettSwap<T::AccountId>>::reserve(
+			GetCurrencyId::get(), &source, self.value,
+		)
+	}
+
+	fn claim(&self, source: &AccountId, target: &AccountId, value: Self::Balance) -> bool {
+		<Pallet<T> as SettSwap<T::AccountId>>::repatriate_reserved(
+			GetCurrencyId::get(), &source, &target, self.value, BalanceStatus::Free,
+		).is_ok()
+	}
+
+	fn weight(&self) -> Weight {
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	fn cancel(&self, source: &AccountId, value: Self::Balance) {
+		<Pallet<T> as SettSwap<T::AccountId>>::unreserve(
+			GetCurrencyId::get(), &source, self.value,
+		)
+	}
+}
+
 pub type NativeCurrencyOf<T> = Currency<T, <T as Config>::GetNativeCurrencyId>;
 
 /// Adapt other currency traits implementation to `BasicCurrency`.
-pub struct BasicCurrencyAdapter<T, Currency, Amount, Moment>(marker::PhantomData<(T, Currency, Amount, Moment)>);
+pub struct BasicCurrencyAdapter<T, Currency, Amount, Moment, C>(marker::PhantomData<(T, Currency, Amount, Moment, C)>);
 
 type PalletBalanceOf<A, Currency> = <Currency as PalletCurrency<A>>::Balance;
 
@@ -864,6 +1135,30 @@ where
 		status: BalanceStatus,
 	) -> result::Result<Self::Balance, DispatchError> {
 		Currency::repatriate_reserved(slashed, beneficiary, value, status)
+	}
+}
+
+impl<T, AccountId, Currency, Amount, Moment> SettSwap<AccountId>
+	for BasicCurrencyAdapter<T, Currency, Amount, Moment>
+where
+	Currency: PalletReservableCurrency<AccountId>,
+	T: Config,
+
+{
+	fn reserve(&self, source: &AccountId, value: Self::Balance) -> DispatchResult {
+		Currency::reserve(&source, self.value)
+	}
+
+	fn claim(&self, source: &AccountId, target: &AccountId, value: Self::Balance) -> bool {
+		Currency::repatriate_reserved(source, target, self.value, BalanceStatus::Free).is_ok()
+	}
+
+	fn weight(&self) -> Weight {
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	fn cancel(&self, source: &AccountId, value: Self::Balance) {
+		Currency::unreserve(source, self.value)
 	}
 }
 
