@@ -12,7 +12,7 @@ version = '0.4.1'
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.1", default-features = false, features = [ "derive"] }
 fetch-price = { default-features = false, package = 'fetch-price', version = '0.4.1', git = 'https://github.com/Setheum-Labs/fetch-price' }
 sp-std = { default-features = false, optional = true, version = '3.0.0' }
 serde = { version = "1.0.123", optional = true }
