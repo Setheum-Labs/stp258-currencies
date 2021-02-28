@@ -522,13 +522,13 @@ pub mod module {
         pub fn set_basket_price(
             origin, 
             currency_id: CurrencyId,
-            peg_price1: u32,
-            peg_price2: u32,
-            peg_price3: u32,
-            peg_price4: u32,
+            new_price1: u32,
+            new_price2: u32,
+            new_price3: u32,
+            new_price4: u32,
         ) -> dispatch::DispatchResult {
             let _who = ensure_signed(origin)?;
-            let new_price = (peg_price1 + peg_price2 + peg_price3 + peg_price4)/4
+            let new_price = (new_price1 + new_price2 + new_price3 + new_price4)/4;
 
             BasketPrice::put(currency_id, new_price);
 
