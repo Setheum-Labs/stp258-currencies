@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     env:
       SCCACHE_CACHE_SIZE: "50G"
     steps:
