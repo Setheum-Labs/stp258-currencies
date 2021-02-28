@@ -59,7 +59,7 @@ use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		WithdrawReasons,
+		WithdrawReasons, Imbalance
 		Currency as PalletCurrency, ensure,
 		ExistenceRequirement, Get, Parameter, 
 		LockableCurrency as PalletLockableCurrency,
@@ -77,6 +77,7 @@ use orml_traits::{
 	MultiLockableCurrency as LockableSettCurrency, 
 	MultiReservableCurrency as ReservableSettCurrency,
 };
+use pallet_balances::{burn, issue as mint};
 use orml_utilities::with_transaction_result;
 use sp_runtime::{
 	traits::{CheckedSub, MaybeSerializeDeserialize, StaticLookup, Zero},
