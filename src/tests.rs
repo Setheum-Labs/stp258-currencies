@@ -98,6 +98,33 @@ fn sett_currency_burning_should_work() {
 }
 
 #[test]
+fn sett_currency_basket_token_minting_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| { 
+			assert_ok!(Stp258::mint(SETT_BASKET_ID, &ALICE, 10));
+			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &ALICE), 110);
+			assert_ok!(Stp258::mint(SETT_BASKET_ID, &BOB, 5));
+			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &BOB), 105);
+		});
+}
+
+#[test]
+
+fn sett_currency_basket_token_burning_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			assert_ok!(Stp258::burn(SETT_BASKET_ID, &ALICE, 10));
+			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &ALICE), 90);
+			assert_ok!(Stp258::burn(SETT_USD_ID, &BOB, 5));
+			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &BOB), 95);
+		});
+}
+
+#[test]
 fn native_currency_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
@@ -347,10 +374,10 @@ fn set_price_works() {
 fn set_basket_price_works() {
 	new_test_ext().execute_with(|| {
 		// Just a set_price test for the `set_basket_price` function `
-		// calling the `set_basket_price` function with a value 3
-		assert_ok!(Stp258::set_basket_price(Origin::signed(1),SETT_BASKET_ID, 2));
+		// calling the `set_basket_price` function with a value 30
+		assert_ok!(Stp258::set_basket_price(Origin::signed(1),SETT_BASKET_ID, 30));
 		// asserting that the stored value is equal to what we stored
-		assert_eq!(Stp258::get_price(SETT_USD_ID), 2);
+		assert_eq!(Stp258::get_price(SETT_BASKET_ID), 30);
 	});
 }
 
