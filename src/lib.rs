@@ -14,7 +14,6 @@
 //!
 //! It also implement an price fetch `FetchPrice`, to fetch currency prices. 
 //!  `set_price` - called to manually set currency price.
-//!  `FetchPriceFor` - called from an offchain worker to fetch off-chain price.
 //! 
 //! It also provides an adapter, to adapt `frame_support::traits::Currency`
 //! implementations into `BasicCurrencyExtended`.
@@ -60,15 +59,14 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		WithdrawReasons,
-		Currency as PalletCurrency, ensure,
-		ExistenceRequirement, Get, Parameter, 
+		Currency as PalletCurrency,
+		ExistenceRequirement, Get, 
 		LockableCurrency as PalletLockableCurrency,
 		ReservableCurrency as PalletReservableCurrency, 
 	},
 	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use fetch_price::FetchPriceFor;
 use orml_traits::{
 	account::MergeAccount, arithmetic::{Signed, SimpleArithmetic}, BalanceStatus, 
 	BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, CurrencyId,
@@ -135,7 +133,7 @@ pub mod module {
 	/// succeeds with best efforts.
 	/// - **Claim**: claim any resources reserved in the first phrase.
 	/// - **Cancel**: cancel any resources reserved in the first phrase.
-	pub trait<T: Config> SettSwap<AccountId, T: Config> {
+	pub trait SettSwap<AccountId, T: Config> {
 		/// Reserve the resources needed for the swap, from the given `source`. The reservation is
 		/// allowed to fail. If that is the case, the the full swap creation operation is cancelled.
 		fn reserve(&self, currency_id: CurrencyIdOf<T>, source: &AccountId, value: Self::Balance) -> DispatchResult;
@@ -156,9 +154,6 @@ pub mod module {
 		
 		/// The amount of SettCurrency necessary to buy the tracked value. (e.g., 1_100 for 1$)
 		type Price: FetchPrice<CurrencyId>;
-
-		/// The off-chain Price feed.
-  		type OffchainPrice: FetchPriceFor;
 
 		/// The amount of SettCurrency that are meant to track the value. Example: A value of 1_000 when tracking
 		/// Dollars means that the SettCurrency will try to maintain a price of 1_000 SettCurrency for 1$.
@@ -271,31 +266,27 @@ pub mod module {
 
 	#[pallet::storage]
 	/// The total amount of SettCurrency in circulation.
-	#[pallet::getter(fn settcurrency_supply): Get<CurrencyId> = 0]
-	#[pallet::getter(fn get_price): Get<Price: u32>]
+	#[pallet::getter(fn settcurrency_supply)]
+	#[pallet::getter(fn get_price)]
 	#[pallet::getter(fn pending_swaps)]
 	pub type SettCurrencySupply<T: Config> = 
 			StorageValue<_, CurrencyIdOf<T>, AmountOf<T>, ValueQuery>;
 	pub type PendingSwaps<T: Config> = StorageDoubleMap<
 		_,
-		hasher(twox_64_concat) T::AccountId,
-		hasher(blake2_128_concat) HashedProof,
+		hasher(twox_64_concat),
+		T::AccountId,
+		HashedProof,
 		currency_id: CurrencyIdOf<T>, 
 		value: BalanceOf<T>,
 		ValueQuery,
 	>;
-	pub type Price<T: Config<I> = StorageValue<
-		_, 
-		CurrencyIdOf<T>, Price: u32 = 1_000_000, 
-		ValueQuery>{
-			Price get(fn get_price);
-	}
-	pub type BasketPrice<T: Config<I> = StorageValue<
-		_, 
-		CurrencyIdOf<T>, Price: u32 = 1_000_000, 
-		ValueQuery>{
-			Price get(fn get_price);
-	}
+
+	pub type Price<T: Config> = 
+			StorageValue<_, CurrencyIdOf<T>, Price: u32,
+		1_000_000, ValueQuery>;
+	pub type BasketPrice<T: Config> = 
+			StorageValue<_, CurrencyIdOf<T>, Price: u32,
+		1_000_000, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -539,24 +530,9 @@ pub mod module {
             new_price4: u32,
         ) -> dispatch::DispatchResult {
             let _who = ensure_signed(origin)?;
-            let new_price = (new_price1 + new_price2 + new_price3 + new_price4)/4;
+            let new_ = (new_price1 + new_price2 + new_price3 + new_price4)/4;
 
             BasketPrice::put(currency_id, new_price);
-
-            Self::deposit_event(RawEvent::NewPrice(currency_id, new_price));
-
-            Ok(())
-        }
-
-		/// Get Off-Chain Price.
-		///
-        #[weight = 0]
-        pub fn get_offchain_price(origin) -> dispatch::DispatchResult {
-            let _who = ensure_signed(origin)?;
-            let price = T::OffchainPrice::fetch_price(b"DOT").unwrap();
-
-            native::info!("DOT offchain price: {}", price);
-            Price::put(currency_id, new_price);
 
             Self::deposit_event(RawEvent::NewPrice(currency_id, new_price));
 
@@ -872,7 +848,6 @@ impl<T, GetCurrencyId> SettSwap<T::AccountId> for Pallet<T> {
 		} else {
 			T::SettCurrency::unreserve(currency_id, &source, self.value)
 		}
-		)
 	}
 }
 

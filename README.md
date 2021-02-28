@@ -13,7 +13,6 @@ Multi-Currency Stablecoin SERP Module
 
  It also implement an price fetch `FetchPrice`, to fetch currency prices. 
   `set_price` - called to manually set currency price.
-  `FetchPriceFor` - called from an offchain worker to fetch off-chain price.
   
  It also provides an adapter, to adapt `frame_support::traits::Currency`
  implementations into `BasicCurrencyExtended`.
