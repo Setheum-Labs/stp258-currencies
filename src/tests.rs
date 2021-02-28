@@ -34,14 +34,27 @@ fn correct_error_for_none_value() {
 
 
 #[test]
-fn sett_currency_should_work() {
+fn sett_currencies_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
+			//Transfer US Dollar stablecoin (JUSD / SettDollar) from ALICE to BOB
 			assert_ok!(Stp258::transfer(Some(ALICE).into(), BOB, SETT_USD_ID, 50));
 			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 50);
 			assert_eq!(Stp258::free_balance(SETT_USD_ID, &BOB), 150);
+			//Transfer Euro stablecoin (JEUR / SettEuro) from ALICE to BOB
+			assert_ok!(Stp258::transfer(Some(ALICE).into(), BOB, SETT_EUR_ID, 50));
+			assert_eq!(Stp258::free_balance(SETT_EUR_ID, &ALICE), 50);
+			assert_eq!(Stp258::free_balance(SETT_EUR_ID, &BOB), 150);
+			//Transfer Pound Sterling stablecoin (JGBP / SettPounds) from ALICE to BOB
+			assert_ok!(Stp258::transfer(Some(ALICE).into(), BOB, SETT_GBP_ID, 50));
+			assert_eq!(Stp258::free_balance(SETT_GBP_ID, &ALICE), 50);
+			assert_eq!(Stp258::free_balance(SETT_GBP_ID, &BOB), 150);
+			//Transfer Swiss Franc stablecoin (JCHF / SettSwiss) from ALICE to BOB
+			assert_ok!(Stp258::transfer(Some(ALICE).into(), BOB, SETT_CHF_ID, 50));
+			assert_eq!(Stp258::free_balance(SETT_CHF_ID, &ALICE), 50);
+			assert_eq!(Stp258::free_balance(SETT_CHF_ID, &BOB), 150);
 		});
 }
 
@@ -51,6 +64,7 @@ fn sett_currency_basket_token_should_work() {
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
+			//Transfer Sett BasketToken stablecoin (SETT / Sett) from ALICE to BOB
 			assert_ok!(Stp258::transfer(Some(ALICE).into(), BOB, SETT_BASKET_ID, 50));
 			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &ALICE), 50);
 			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &BOB), 150);
@@ -64,10 +78,10 @@ fn sett_currency_extended_should_work() {
 		.build()
 		.execute_with(|| {
 			assert_ok!(<Stp258 as ExtendedSettCurrency<AccountId>>::update_balance(
-				SETT_USD_ID, &ALICE, 50
+				SETT_EUR_ID, &ALICE, 50
 			));
-			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 150);
-		});
+			assert_eq!(Stp258::free_balance(SETT_EUR_ID, &ALICE), 150);
+		});CHF
 }
 
 #[test]
@@ -76,10 +90,10 @@ fn sett_currency_minting_should_work() {
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| { 
-			assert_ok!(Stp258::mint(SETT_USD_ID, &ALICE, 10));
+			assert_ok!(Stp258::mint(SETT_CHF_ID, &ALICE, 10));
 			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 110);
-			assert_ok!(Stp258::mint(SETT_USD_ID, &BOB, 5));
-			assert_eq!(Stp258::free_balance(SETT_USD_ID, &BOB), 105);
+			assert_ok!(Stp258::mint(SETT_CHF_ID, &BOB, 5));
+			assert_eq!(Stp258::free_balance(SETT_CHF_ID, &BOB), 105);
 		});
 }
 
@@ -119,7 +133,7 @@ fn sett_currency_basket_token_burning_should_work() {
 		.execute_with(|| {
 			assert_ok!(Stp258::burn(SETT_BASKET_ID, &ALICE, 10));
 			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &ALICE), 90);
-			assert_ok!(Stp258::burn(SETT_USD_ID, &BOB, 5));
+			assert_ok!(Stp258::burn(SETT_BASKET_ID, &BOB, 5));
 			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &BOB), 95);
 		});
 }
@@ -273,15 +287,15 @@ fn reservable_sett_currency_should_work() {
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
-			assert_eq!(Stp258::total_issuance(SETT_USD_ID), 200);
-			assert_eq!(Stp258::total_issuance(SETT_USD_ID), 200);
-			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 100);
+			assert_eq!(Stp258::total_issuance(SETT_GBP_ID), 200);
+			assert_eq!(Stp258::total_issuance(SETT_GBP_ID), 200);
+			assert_eq!(Stp258::free_balance(SETT_GBP_ID, &ALICE), 100);
 			assert_eq!(NativeCurrency::free_balance(&ALICE), 100);
 
-			assert_ok!(Stp258::reserve(SETT_USD_ID, &ALICE, 30));
-			assert_ok!(Stp258::reserve(SETT_USD_ID, &ALICE, 40));
-			assert_eq!(Stp258::reserved_balance(SETT_USD_ID, &ALICE), 30);
-			assert_eq!(Stp258::reserved_balance(SETT_USD_ID, &ALICE), 40);
+			assert_ok!(Stp258::reserve(SETT_GBP_ID, &ALICE, 30));
+			assert_ok!(Stp258::reserve(SETT_GBP_ID, &ALICE, 40));
+			assert_eq!(Stp258::reserved_balance(SETT_GBP_ID, &ALICE), 30);
+			assert_eq!(Stp258::reserved_balance(SETT_GBP_ID, &ALICE), 40);
 		});
 }
 
@@ -296,16 +310,16 @@ fn settswap_in_basic_currency_should_work() {
 		.build()
 		.execute_with(|| {
 			// Alice creates the swap.
-			assert_eq!(SettSwap::create_swap(Origin::signed(&ALICE), &BOB, hashed_proof.clone(), SettSwap::new(50), 1000));
+			assert_ok!(SettSwap::create_swap(Origin::signed(&ALICE), &BOB, hashed_proof.clone(), SettSwap::new(50), 1000));
 
-			assert_eq!(PalletBalances::free_balance(&ALICE), 50);
+			assert_eq!(PalletBalances::free_balance(&ALICE), 100 - 50);
 			assert_eq!(PalletBalances::free_balance(&BOB), 200);
 
 			// Bob uses the revealed proof to claim the swap.
-			assert_eq!(SettSwap::claim_swap( Origin::signed(&BOB), proof.to_vec(), SettSwap::new(50)));
+			assert_ok!(SettSwap::claim_swap( Origin::signed(&BOB), proof.to_vec(), SettSwap::new(50)));
 
 			assert_eq!(PalletBalances::free_balance(&ALICE), 50);
-			assert_eq!(PalletBalances::free_balance(&BOB), 250);
+			assert_eq!(PalletBalances::free_balance(&BOB), 200 + 50);
 		});
 }
 
@@ -320,13 +334,13 @@ fn settswap_in_native_currency_should_work() {
 		.build()
 		.execute_with(|| {
 			// Bob creates the swap 2.
-			assert_eq!(SettSwap::create_swap(Origin::signed(&BOB), &ALICE, hashed_proof.clone(), SettSwap::new(75), 1000));
+			assert_ok!(SettSwap::create_swap(Origin::signed(&BOB), &ALICE, hashed_proof.clone(), SettSwap::new(75), 1000));
 
 			assert_eq!(NativeCurrency::free_balance(&ALICE), 100);
 			assert_eq!(NativeCurrency::free_balance(&BOB), 125);
 
 			// Alice reveals the proof and claims the swap 2.
-			assert_eq!(SettSwap::claim_swap( Origin::signed(&ALICE), proof.to_vec(), SettSwap::new(75)));
+			assert_ok!(SettSwap::claim_swap( Origin::signed(&ALICE), proof.to_vec(), SettSwap::new(75)));
 
 			assert_eq!(NativeCurrency::free_balance(&ALICE), 175);
 			assert_eq!(NativeCurrency::free_balance(&BOB), 125);
@@ -344,17 +358,17 @@ fn settswap_in_sett_currency_should_work() {
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
-			// Bob creates the swap 2.
-			assert_eq!(SettSwap::create_swap(Origin::signed(&BOB), &ALICE, hashed_proof.clone(), SettSwap::new(75), 1000));
+			// Bob creates the swap.
+			assert_ok!(SettSwap::create_swap(Origin::signed(&BOB), &ALICE, hashed_proof.clone(), SettSwap::new(SETT_USD_ID, 75), 1000));
 
-			assert_eq!(Stp258::free_balance(&ALICE), 100);
-			assert_eq!(Stp258::free_balance(&BOB), 125);
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 100);
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &BOB), 200 - 75);
 
-			// Alice reveals the proof and claims the swap 2.
-			assert_eq!(SettSwap::claim_swap( Origin::signed(&ALICE), proof.to_vec(), SettSwap::new(75)));
+			// Alice reveals the proof and claims the swap.
+			assert_ok!(SettSwap::claim_swap( Origin::signed(&ALICE), proof.to_vec(), SettSwap::new(SETT_USD_ID, 75)));
 
-			assert_eq!(Stp258::free_balance(&ALICE), 175);
-			assert_eq!(Stp258::free_balance(&BOB), 125);
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &ALICE), 100 + 75);
+			assert_eq!(Stp258::free_balance(SETT_USD_ID, &BOB), 125);
 
 		});
 }
@@ -375,9 +389,9 @@ fn set_basket_price_works() {
 	new_test_ext().execute_with(|| {
 		// Just a set_price test for the `set_basket_price` function `
 		// calling the `set_basket_price` function with a value 30
-		assert_ok!(Stp258::set_basket_price(Origin::signed(1),SETT_BASKET_ID, 30));
+		assert_ok!(Stp258::set_basket_price(Origin::signed(1),SETT_BASKET_ID, 25, 82, 58, 25));
 		// asserting that the stored value is equal to what we stored
-		assert_eq!(Stp258::get_price(SETT_BASKET_ID), 30);
+		assert_eq!(Stp258::get_price(SETT_BASKET_ID), (25 + 82 + 58 + 25)/4);
 	});
 }
 
