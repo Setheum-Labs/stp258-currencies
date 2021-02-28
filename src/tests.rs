@@ -247,6 +247,80 @@ fn reservable_sett_currency_should_work() {
 }
 
 #[test]
+fn settswap_in_basic_currency_should_work() {
+	// A generates a random proof. Keep it secret.
+	let proof: [u8; 2] = [4, 2];
+	// The hashed proof is the blake2_256 hash of the proof. This is public.
+	let hashed_proof = blake2_256(&proof);
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			// Alice creates the swap.
+			assert_eq!(SettSwap::create_swap(Origin::signed(&ALICE), &BOB, hashed_proof.clone(), SettSwap::new(50), 1000));
+
+			assert_eq!(PalletBalances::free_balance(&ALICE), 50);
+			assert_eq!(PalletBalances::free_balance(&BOB), 200);
+
+			// Bob uses the revealed proof to claim the swap.
+			assert_eq!(SettSwap::claim_swap( Origin::signed(&BOB), proof.to_vec(), SettSwap::new(50)));
+
+			assert_eq!(PalletBalances::free_balance(&ALICE), 50);
+			assert_eq!(PalletBalances::free_balance(&BOB), 250);
+		});
+}
+
+#[test]
+fn settswap_in_native_currency_should_work() {
+	// A generates a random proof. Keep it secret.
+	let proof: [u8; 2] = [4, 2];
+	// The hashed proof is the blake2_256 hash of the proof. This is public.
+	let hashed_proof = blake2_256(&proof);
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			// Bob creates the swap 2.
+			assert_eq!(SettSwap::create_swap(Origin::signed(&BOB), &ALICE, hashed_proof.clone(), SettSwap::new(75), 1000));
+
+			assert_eq!(NativeCurrency::free_balance(&ALICE), 100);
+			assert_eq!(NativeCurrency::free_balance(&BOB), 125);
+
+			// Alice reveals the proof and claims the swap 2.
+			assert_eq!(SettSwap::claim_swap( Origin::signed(&ALICE), proof.to_vec(), SettSwap::new(75)));
+
+			assert_eq!(NativeCurrency::free_balance(&ALICE), 175);
+			assert_eq!(NativeCurrency::free_balance(&BOB), 125);
+
+		});
+}
+
+#[test]
+fn settswap_in_sett_currency_should_work() {
+	// A generates a random proof. Keep it secret.
+	let proof: [u8; 2] = [4, 2];
+	// The hashed proof is the blake2_256 hash of the proof. This is public.
+	let hashed_proof = blake2_256(&proof);
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			// Bob creates the swap 2.
+			assert_eq!(SettSwap::create_swap(Origin::signed(&BOB), &ALICE, hashed_proof.clone(), SettSwap::new(75), 1000));
+
+			assert_eq!(Stp258::free_balance(&ALICE), 100);
+			assert_eq!(Stp258::free_balance(&BOB), 125);
+
+			// Alice reveals the proof and claims the swap 2.
+			assert_eq!(SettSwap::claim_swap( Origin::signed(&ALICE), proof.to_vec(), SettSwap::new(75)));
+
+			assert_eq!(Stp258::free_balance(&ALICE), 175);
+			assert_eq!(Stp258::free_balance(&BOB), 125);
+
+		});
+}
+
+#[test]
 fn native_currency_lockable_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
