@@ -363,10 +363,10 @@ fn settswap_in_sett_currency_should_work() {
 fn set_price_works() {
 	new_test_ext().execute_with(|| {
 		// Just a set_price test for the `set_price` function `
-		// calling the `set_price` function with a value 2
-		assert_ok!(Stp258::set_price(Origin::signed(1),SETT_USD_ID 2));
+		// calling the `set_price` function with a value 20
+		assert_ok!(Stp258::set_price(Origin::signed(1),SETT_USD_ID 20));
 		// asserting that the stored value is equal to what we stored
-		assert_eq!(Stp258::get_price(SETT_USD_ID), 2);
+		assert_eq!(Stp258::get_price(SETT_USD_ID), 20);
 	});
 }
 
