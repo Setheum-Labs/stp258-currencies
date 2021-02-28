@@ -46,6 +46,18 @@ fn sett_currency_should_work() {
 }
 
 #[test]
+fn sett_currency_basket_token_should_work() {
+	ExtBuilder::default()
+		.one_hundred_for_alice_n_bob()
+		.build()
+		.execute_with(|| {
+			assert_ok!(Stp258::transfer(Some(ALICE).into(), BOB, SETT_BASKET_ID, 50));
+			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &ALICE), 50);
+			assert_eq!(Stp258::free_balance(SETT_BASKET_ID, &BOB), 150);
+		});
+}
+
+#[test]
 fn sett_currency_extended_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
@@ -318,6 +330,28 @@ fn settswap_in_sett_currency_should_work() {
 			assert_eq!(Stp258::free_balance(&BOB), 125);
 
 		});
+}
+
+#[test]
+fn set_price_works() {
+	new_test_ext().execute_with(|| {
+		// Just a set_price test for the `set_price` function `
+		// calling the `set_price` function with a value 2
+		assert_ok!(Stp258::set_price(Origin::signed(1),SETT_USD_ID 2));
+		// asserting that the stored value is equal to what we stored
+		assert_eq!(Stp258::get_price(SETT_USD_ID), 2);
+	});
+}
+
+#[test]
+fn set_basket_price_works() {
+	new_test_ext().execute_with(|| {
+		// Just a set_price test for the `set_basket_price` function `
+		// calling the `set_basket_price` function with a value 3
+		assert_ok!(Stp258::set_basket_price(Origin::signed(1),SETT_BASKET_ID, 2));
+		// asserting that the stored value is equal to what we stored
+		assert_eq!(Stp258::get_price(SETT_USD_ID), 2);
+	});
 }
 
 #[test]
