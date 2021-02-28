@@ -149,6 +149,14 @@ parameter_types! {
 	pub DustAccount: AccountId = ModuleId(*b"orml/dst").into_account();
 }
 
+pub struct OffchainPriceMock;
+
+impl FetchPriceFor for OffchainPriceMock {
+	fn get_price_for(symbol: &[u8]) -> Option<u64> {
+		return Some(symbol.len() as u64)
+	}
+}
+
 impl orml_tokens::Config for Runtime {
 	type Event = TestEvent;
 	type Balance = Balance;
@@ -160,11 +168,22 @@ impl orml_tokens::Config for Runtime {
 }
 pub type Tokens = orml_tokens::Module<Runtime>;
 
+// The Currency ID of the Native Currency Stablecoin (the Dinar) is DNAR.
 pub const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::Token(TokenSymbol::DNAR);
+// The Sett Currency ID of the Sett Basket Token (the Sett) Stablecoin is SETT.
+pub const SETT_BASKET_ID: CurrencyId = CurrencyId::Token(TokenSymbol::SETT);
+// The Sett Currency ID of the US Dollar Stablecoin (USD) is JUSD.
 pub const SETT_USD_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JUSD);
+// The Sett Currency ID of the Euro Stablecoin (EUR) is JEUR.
+pub const SETT_EUR_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JEUR);
+// The Sett Currency ID of the Pound Sterling (GBP) Stablecoin is JGBP.
+pub const SETT_GBP_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JGBP);
+// The Sett Currency ID of the Swiss Franc (CHF) Stablecoin is JCHF.
+pub const SETT_CHF_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JCHF);
 
 parameter_types! {
 	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
+	pub const GetBasketCurrencyId: CurrencyId = SETT_BASKET_ID;
 }
 
 impl Config for Runtime {
@@ -172,6 +191,7 @@ impl Config for Runtime {
 	type SettCurrency = Tokens;
 	type NativeCurrency = AdaptedBasicCurrency;
 	type GetNativeCurrencyId = GetNativeCurrencyId;
+	type GetBasketCurrencyId = GetBasketCurrencyId;
 	type WeightInfo = ();
 }
 pub type Stp258 = Module<Runtime>;
@@ -199,6 +219,11 @@ pub const ALICE: AccountId = AccountId32::new([1u8; 32]);
 pub const BOB: AccountId = AccountId32::new([2u8; 32]);
 pub const EVA: AccountId = AccountId32::new([5u8; 32]);
 pub const DNAR: LockIdentifier = *b"DNAR       ";
+pub const SETT: LockIdentifier = *b"SETT       ";
+pub const JUSD: LockIdentifier = *b"JUSD       ";
+pub const JEUR: LockIdentifier = *b"JEUR       ";
+pub const JGBP: LockIdentifier = *b"JGBP       ";
+pub const JCHF: LockIdentifier = *b"JCHF       ";
 
 
 
@@ -232,8 +257,16 @@ impl ExtBuilder {
 		self.balances(vec![
 			(ALICE, NATIVE_CURRENCY_ID, 100),
 			(BOB, NATIVE_CURRENCY_ID, 100),
+			(ALICE, SETT_BASKET_ID, 100),
+			(BOB, SETT_BASKET_ID, 100),
 			(ALICE, SETT_USD_ID, 100),
 			(BOB, SETT_USD_ID, 100),
+			(ALICE, SETT_EUR_ID, 100),
+			(BOB, SETT_EUR_ID, 100),
+			(ALICE, SETT_GBP_ID, 100),
+			(BOB, SETT_GBP_ID, 100),
+			(ALICE, SETT_CHF_ID, 100),
+			(BOB, SETT_CHF_ID, 100),
 		])
 	}
 
