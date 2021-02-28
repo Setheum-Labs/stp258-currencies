@@ -1,4 +1,5 @@
-//! # stp258 Module
+//! # Setheum Tokenization Protocol 258
+//! Multi-Currency Stablecoin SERP Module
 //!
 //! ## Overview
 //!
@@ -6,6 +7,15 @@
 //! native currency which implements `BasicCurrencyExtended`, and a
 //! multi-currency which implements `SettCurrency`.
 //!
+//! It also implement an atomic swap, to atomically swap currencies 
+//!  `create_swap` - called by a sender to register a new atomic swap
+//!  `claim_swap` - called by the target to approve a swap
+//!  `cancel_swap` - may be called by a sender after a specified duration.
+//!
+//! It also implement an price fetch `FetchPrice`, to fetch currency prices. 
+//!  `set_price` - called to manually set currency price.
+//!  `FetchPriceFor` - called from an offchain worker to fetch off-chain price.
+//! 
 //! It also provides an adapter, to adapt `frame_support::traits::Currency`
 //! implementations into `BasicCurrencyExtended`.
 //!
@@ -20,7 +30,8 @@
 //! The stp258 module provides implementations for following traits.
 //!
 //! - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system 
-//! that includes `basket_token`.
+//! that includes `basket_token` as pegged to a basket of currencies, `price` of 
+//! settcurrencies and `sett_swap` to atomically swap currencies.
 //! - `ExtendedSettCurrency` - Extended `SettCurrency` with additional helper
 //!   types and methods, like updating balance
 //! by a given signed integer amount.
