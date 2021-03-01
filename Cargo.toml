@@ -6,7 +6,7 @@ homepage = 'https://setheum.xyz'
 license = 'Apache-2.0 License'
 name = "stp258"
 repository = 'https://github.com/Setheum-Labs/Setheum/'
-version = '0.4.1'
+version = '0.4.2-dev'
 
 [dependencies]
 serde = { version = "1.0.111", optional = true }
