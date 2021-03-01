@@ -236,16 +236,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 pub struct ExtBuilder {
-	existential_deposit: u64,
-	monied: bool,
 	endowed_accounts: Vec<(AccountId, CurrencyId, Balance)>,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
-			existential_deposit: 1,
-			monied: false,
 			endowed_accounts: vec![],
 		}
 	}
@@ -255,17 +251,6 @@ impl ExtBuilder {
 	pub fn balances(mut self, endowed_accounts: Vec<(AccountId, CurrencyId, Balance)>) -> Self {
 		self.endowed_accounts = endowed_accounts;
 		self
-	}
-	pub fn existential_deposit(mut self, existential_deposit: Vec<(CurrencyId, Balance: u64)>) -> Self {
-		self.existential_deposit = existential_deposit;
-		self
-	}
-	pub fn monied(mut self, monied: bool) -> Self {
-		self.monied = monied;
-		self
-	}
-	pub fn set_associated_consts(&self) {
-		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 	}
 
 	pub fn one_hundred_for_alice_n_bob(self) -> Self {
@@ -291,24 +276,13 @@ impl ExtBuilder {
 			.unwrap();
 
 		pallet_balances::GenesisConfig::<Runtime> {
-			balances: if self.monied {
-				vec![
-					(1, 10 * self.existential_deposit),
-					(2, 20 * self.existential_deposit),
-					(3, 30 * self.existential_deposit),
-					(4, 40 * self.existential_deposit),
-					(12, 10 * self.existential_deposit)
-				]
-			} else if
-				self.endowed_accounts { 
+			balances: self.endowed_accounts { 
 				.clone()
 				.into_iter()
 				.filter(|(_, currency_id, _)| *currency_id == NATIVE_CURRENCY_ID)
 				.map(|(account_id, _, initial_balance)| (account_id, initial_balance))
 				.collect::<Vec<_>>(),
-			} else {
-				vec![]
-			},
+			}
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
