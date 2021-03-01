@@ -12,39 +12,37 @@ version = '0.4.1'
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.1", default-features = false, features = [ "derive"] }
-sp-std = { default-features = false, optional = true, version = '3.0.0' }
 serde = { version = "1.0.123", optional = true }
+codec = { package = "parity-scale-codec", version = "2.0.1", default-features = false, features = [ "derive"] }
+sp-runtime = { default-features = false, optional = true, version = '3.0.0' }
+sp-std = { default-features = false, optional = true, version = '3.0.0' }
 frame-support = { default-features = false, version = '3.0.0' }
 frame-system = { default-features = false, version = '3.0.0' }
 orml-traits = { default-features = false, version = '0.4.0' }
-orml-utilities = { default-features = false, version = '0.4.0' }
 num-rational = { default-features = false, version = '0.3.2' }
 num-traits = { version = "0.2.14", default-features = false }
 fixed = { default-features = false, version = '1.6.0' }
-sp-runtime = { default-features = false, optional = true, version = '3.0.0' }
 
 funty = { version = "1.1.0", default-features = false } # https://github.com/bitvecto-rs/bitvec/issues/105
 
 [dev-dependencies]
 sp-core = '3.0.0'
 sp-io = '3.0.0'
-orml-tokens = { package = "orml-tokens", version = '0.4.0'}
-pallet-balances = "3.0.0"
+pallet-treasury = "3.0.0"
+pallet-elections-phragmen = "3.0.0"
 
 [features]
 default = ['std']
 std = [
+	"serde/std",
     'codec/std',
-    "fixed/std",
+    "sp-runtime/std",
+    "sp-std",
     'frame-support/std',
     'frame-system/std',
+	"orml-traits/std",
     "num-rational/std",
 	"num-traits/std",
-	"orml-traits/std",
-    'orml-utilities/std',
-	"serde/std",
-    "sp-runtime/std",
+    "fixed/std",
 	"sp-io/std",
-    "sp-std",
 ]
