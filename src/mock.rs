@@ -1,96 +1,39 @@
-//! Mocks for the stp258 module.
+//! Mocks for the Stp258 module.
 
 #![cfg(test)]
 
-use crate::{Module, Trait};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
-use frame_system as system;
-use pallet_balances;
+use super::*;
+use frame_support::{
+	construct_runtime, parameter_types,
+	traits::{ChangeMembers, Contains, ContainsLengthBound, SaturatingCurrencyToVote},
+};
 use orml_traits::parameter_type_with_key;
 use sp_core::H256;
-use sp_runtime::{
-	testing::Header,
-	traits::{AccountIdConversion, IdentityLookup},
-	AccountId32, ModuleId, Fixed64, Perbill,
-};
-
-use traits::*;
-
-use super::*;
-use itertools::Itertools;
-use log;
-use more_asserts::*;
-use quickcheck::{QuickCheck, TestResult};
-use rand::{thread_rng, Rng};
-use std::sync::atomic::{AtomicU64, Ordering};
-
-use sp_std::iter;
-use system;
-
-mod stp258 {
-	pub use crate::Event;
-}
-                             
-impl_outer_event! {
-	pub enum TestEvent for Runtime {
-		frame_system<T>,
-		stp258<T>,
-		orml_tokens<T>,
-		pallet_balances<T>,
-	}
-}
-
-impl_outer_origin! {
-	pub enum Origin for Runtime {}
-}
-
-const TEST_BASE_UNIT: u64 = 1000;
-static LAST_PRICE: AtomicU64 = AtomicU64::new(TEST_BASE_UNIT);
-pub struct RandomPrice;
-
-impl FetchPrice<SettCurrency> for RandomPrice {
-	fn fetch_price() -> SettCurrency {
-		let prev = LAST_PRICE.load(Ordering::SeqCst);
-		let random = thread_rng().gen_range(500, 1500);
-		let ratio: Ratio<u64> = Ratio::new(random, 1000);
-		let next = ratio
-			.checked_mul(&prev.into())
-			.map(|r| r.to_integer())
-			.unwrap_or(prev);
-		LAST_PRICE.store(next + 1, Ordering::SeqCst);
-		prev
-	}
-}
-
-// Configure a mock runtime to test the pallet.
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Runtime;
-parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    
-    // allow few bids
-	pub const MaximumBids: u64 = 10;
-	// adjust supply every second block
-	pub const ElastAdjustmentFrequency: u64 = 2;
-	pub const BaseUnit: u64 = TEST_BASE_UNIT;
-	pub const InitialSupply: u64 = 100 * BaseUnit::get();
-	pub const MinimumSupply: u64 = BaseUnit::get();
-}
+use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, Permill};
+use sp_std::cell::RefCell;
 
 pub type AccountId = AccountId32;
-pub type BlockNumber = u64;
+pub type CurrencyId = u32;
+pub type Balance = u64;
 
-impl system::Config for Runtime {
+pub const DOT: CurrencyId = 1;
+pub const BTC: CurrencyId = 2;
+pub const ETH: CurrencyId = 3;
+pub const ALICE: AccountId = AccountId32::new([0u8; 32]);
+pub const BOB: AccountId = AccountId32::new([1u8; 32]);
+pub const TREASURY_ACCOUNT: AccountId = AccountId32::new([2u8; 32]);
+pub const ID_1: LockIdentifier = *b"1       ";
+pub const ID_2: LockIdentifier = *b"2       ";
+
+use crate as stp258;
+
+parameter_types! {
+	pub const BlockHashCount: u64 = 250;
+}
+
+impl frame_system::Config for Runtime {
 	type Origin = Origin;
-	type Call = ();
+	type Call = Call;
 	type Index = u64;
 	type BlockNumber = u64;
 	type Hash = H256;
@@ -98,50 +41,164 @@ impl system::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = TestEvent;
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type Version = ();
-	type PalletInfo = ();
-	type AccountData = pallet_balances::AccountData<u64>;
+	type PalletInfo = PalletInfo;
+	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type DbWeight = ();
 	type BaseCallFilter = ();
 	type SystemWeightInfo = ();
-    type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
-}          
-pub type System = frame_system::Module<Runtime>;
-pub type Stp258 = Module<Runtime>;
+	type SS58Prefix = ();
+}
 
-type CurrencyId = u32;
-type Balance = u64;
+thread_local! {
+	static TEN_TO_FOURTEEN: RefCell<Vec<AccountId>> = RefCell::new(vec![
+		AccountId32::new([10u8; 32]),
+		AccountId32::new([11u8; 32]),
+		AccountId32::new([12u8; 32]),
+		AccountId32::new([13u8; 32]),
+		AccountId32::new([14u8; 32]),
+	]);
+}
+
+pub struct TenToFourteen;
+impl Contains<AccountId> for TenToFourteen {
+	fn sorted_members() -> Vec<AccountId> {
+		TEN_TO_FOURTEEN.with(|v| v.borrow().clone())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add(new: &AccountId) {
+		TEN_TO_FOURTEEN.with(|v| {
+			let mut members = v.borrow_mut();
+			members.push(*new);
+			members.sort();
+		})
+	}
+}
+
+impl ContainsLengthBound for TenToFourteen {
+	fn max_len() -> usize {
+		TEN_TO_FOURTEEN.with(|v| v.borrow().len())
+	}
+	fn min_len() -> usize {
+		0
+	}
+}
 
 parameter_types! {
-	pub const ExistentialDeposit: u64 = 1;
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const ProposalBondMinimum: u64 = 1;
+	pub const SpendPeriod: u64 = 2;
+	pub const Burn: Permill = Permill::from_percent(50);
+	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const GetTokenId: CurrencyId = DOT;
 }
 
-impl pallet_balances::Config for Runtime {
-	type Balance = Balance;
-	type DustRemoval = ();
-	type Event = TestEvent;
-	type ExistentialDeposit = ExistentialDeposit;
-	type AccountStore = frame_system::Module<Runtime>;
-	type MaxLocks = ();
+impl pallet_treasury::Config for Runtime {
+	type ModuleId = TreasuryModuleId;
+	type Currency = CurrencyAdapter<Runtime, GetTokenId>;
+	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
+	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
+	type Event = Event;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ProposalBondMinimum;
+	type SpendPeriod = SpendPeriod;
+	type Burn = Burn;
+	type BurnDestination = ();
+	type SpendFunds = ();
 	type WeightInfo = ();
 }
-pub type PalletBalances = pallet_balances::Module<Runtime>;
+
+thread_local! {
+	pub static MEMBERS: RefCell<Vec<AccountId>> = RefCell::new(vec![]);
+	pub static PRIME: RefCell<Option<AccountId>> = RefCell::new(None);
+}
+
+pub struct TestChangeMembers;
+impl ChangeMembers<AccountId> for TestChangeMembers {
+	fn change_members_sorted(incoming: &[AccountId], outgoing: &[AccountId], new: &[AccountId]) {
+		// new, incoming, outgoing must be sorted.
+		let mut new_sorted = new.to_vec();
+		new_sorted.sort();
+		assert_eq!(new, &new_sorted[..]);
+
+		let mut incoming_sorted = incoming.to_vec();
+		incoming_sorted.sort();
+		assert_eq!(incoming, &incoming_sorted[..]);
+
+		let mut outgoing_sorted = outgoing.to_vec();
+		outgoing_sorted.sort();
+		assert_eq!(outgoing, &outgoing_sorted[..]);
+
+		// incoming and outgoing must be disjoint
+		for x in incoming.iter() {
+			assert!(outgoing.binary_search(x).is_err());
+		}
+
+		let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
+		old_plus_incoming.extend_from_slice(incoming);
+		old_plus_incoming.sort();
+
+		let mut new_plus_outgoing = new.to_vec();
+		new_plus_outgoing.extend_from_slice(outgoing);
+		new_plus_outgoing.sort();
+
+		assert_eq!(
+			old_plus_incoming, new_plus_outgoing,
+			"change members call is incorrect!"
+		);
+
+		MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
+		PRIME.with(|p| *p.borrow_mut() = None);
+	}
+
+	fn set_prime(who: Option<AccountId>) {
+		PRIME.with(|p| *p.borrow_mut() = who);
+	}
+}
+
+parameter_types! {
+	pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
+	pub const CandidacyBond: u64 = 3;
+	pub const VotingBond: u64 = 2;
+	pub const DesiredMembers: u32 = 2;
+	pub const DesiredRunnersUp: u32 = 2;
+	pub const TermDuration: u64 = 5;
+	pub const VotingBondBase: u64 = 2;
+	pub const VotingBondFactor: u64 = 0;
+}
+
+impl pallet_elections_phragmen::Config for Runtime {
+	type ModuleId = ElectionsPhragmenModuleId;
+	type Event = Event;
+	type Currency = CurrencyAdapter<Runtime, GetTokenId>;
+	type CurrencyToVote = SaturatingCurrencyToVote;
+	type ChangeMembers = TestChangeMembers;
+	type InitializeMembers = ();
+	type CandidacyBond = CandidacyBond;
+	type VotingBondBase = VotingBondBase;
+	type VotingBondFactor = VotingBondFactor;
+	type TermDuration = TermDuration;
+	type DesiredMembers = DesiredMembers;
+	type DesiredRunnersUp = DesiredRunnersUp;
+	type LoserCandidate = ();
+	type KickedMember = ();
+	type WeightInfo = ();
+}
 
 parameter_type_with_key! {
 	pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
-		Default::default()
+		match currency_id {
+			&BTC => 1,
+			&DOT => 2,
+			_ => 0,
+		}
 	};
 }
 
@@ -149,54 +206,16 @@ parameter_types! {
 	pub DustAccount: AccountId = ModuleId(*b"orml/dst").into_account();
 }
 
-pub struct OffchainPriceMock;
-
-impl FetchPriceFor for OffchainPriceMock {
-	fn get_price_for(symbol: &[u8]) -> Option<u64> {
-		return Some(symbol.len() as u64)
-	}
-}
-
-impl orml_tokens::Config for Runtime {
-	type Event = TestEvent;
+impl Config for Runtime {
+	type Event = Event;
 	type Balance = Balance;
 	type Amount = i64;
 	type CurrencyId = CurrencyId;
 	type WeightInfo = ();
 	type ExistentialDeposits = ExistentialDeposits;
-	type OnDust = orml_tokens::TransferDust<Runtime, DustAccount>;
+	type OnDust = TransferDust<Runtime, DustAccount>;
 }
-pub type Tokens = orml_tokens::Module<Runtime>;
-
-// The Currency ID of the Native Currency Stablecoin (the Dinar) is DNAR.
-pub const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::Token(TokenSymbol::DNAR);
-// The Sett Currency ID of the Sett Basket Token (the Sett) Stablecoin is SETT.
-pub const SETT_BASKET_ID: CurrencyId = CurrencyId::Token(TokenSymbol::SETT);
-// The Sett Currency ID of the US Dollar Stablecoin (USD) is JUSD.
-pub const SETT_USD_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JUSD);
-// The Sett Currency ID of the Euro Stablecoin (EUR) is JEUR.
-pub const SETT_EUR_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JEUR);
-// The Sett Currency ID of the Pound Sterling (GBP) Stablecoin is JGBP.
-pub const SETT_GBP_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JGBP);
-// The Sett Currency ID of the Swiss Franc (CHF) Stablecoin is JCHF.
-pub const SETT_CHF_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JCHF);
-
-parameter_types! {
-	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
-	pub const GetBasketCurrencyId: CurrencyId = SETT_BASKET_ID;
-}
-
-impl Config for Runtime {
-	type Event = TestEvent;
-	type SettCurrency = Tokens;
-	type NativeCurrency = AdaptedBasicCurrency;
-	type GetNativeCurrencyId = GetNativeCurrencyId;
-	type GetBasketCurrencyId = GetBasketCurrencyId;
-	type WeightInfo = ();
-}
-pub type Stp258 = Module<Runtime>;
-pub type NativeCurrency = NativeCurrencyOf<Runtime>;
-pub type AdaptedBasicCurrency = BasicCurrencyAdapter<Runtime, PalletBalances, i64, u64>;
+pub type TreasuryCurrencyAdapter = <Runtime as pallet_treasury::Config>::Currency;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -208,41 +227,22 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Storage, Config, Event<T>},
-		Currencies: currencies::{Module, Call, Event<T>},
-		Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
-		PalletBalances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-
+		Stp258: stp258::{Module, Storage, Event<T>, Config<T>},
+		Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
+		ElectionsPhragmen: pallet_elections_phragmen::{Module, Call, Storage, Event<T>},
 	}
 );
 
-pub const ALICE: AccountId = AccountId32::new([1u8; 32]);
-pub const BOB: AccountId = AccountId32::new([2u8; 32]);
-pub const EVA: AccountId = AccountId32::new([5u8; 32]);
-pub const DNAR: LockIdentifier = *b"DNAR       ";
-pub const SETT: LockIdentifier = *b"SETT       ";
-pub const JUSD: LockIdentifier = *b"JUSD       ";
-pub const JEUR: LockIdentifier = *b"JEUR       ";
-pub const JGBP: LockIdentifier = *b"JGBP       ";
-pub const JCHF: LockIdentifier = *b"JCHF       ";
-
-
-
-// Build genesis storage according to the mock runtime.-------------------------------
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
-}
-
 pub struct ExtBuilder {
 	endowed_accounts: Vec<(AccountId, CurrencyId, Balance)>,
+	treasury_genesis: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			endowed_accounts: vec![],
+			treasury_genesis: false,
 		}
 	}
 }
@@ -254,20 +254,12 @@ impl ExtBuilder {
 	}
 
 	pub fn one_hundred_for_alice_n_bob(self) -> Self {
-		self.balances(vec![
-			(ALICE, NATIVE_CURRENCY_ID, 100),
-			(BOB, NATIVE_CURRENCY_ID, 100),
-			(ALICE, SETT_BASKET_ID, 100),
-			(BOB, SETT_BASKET_ID, 100),
-			(ALICE, SETT_USD_ID, 100),
-			(BOB, SETT_USD_ID, 100),
-			(ALICE, SETT_EUR_ID, 100),
-			(BOB, SETT_EUR_ID, 100),
-			(ALICE, SETT_GBP_ID, 100),
-			(BOB, SETT_GBP_ID, 100),
-			(ALICE, SETT_CHF_ID, 100),
-			(BOB, SETT_CHF_ID, 100),
-		])
+		self.balances(vec![(ALICE, DOT, 100), (BOB, DOT, 100)])
+	}
+
+	pub fn one_hundred_for_treasury_account(mut self) -> Self {
+		self.treasury_genesis = true;
+		self.balances(vec![(TREASURY_ACCOUNT, DOT, 100)])
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {
@@ -275,28 +267,26 @@ impl ExtBuilder {
 			.build_storage::<Runtime>()
 			.unwrap();
 
-		pallet_balances::GenesisConfig::<Runtime> {
-			balances: self.endowed_accounts { 
-				.clone()
-				.into_iter()
-				.filter(|(_, currency_id, _)| *currency_id == NATIVE_CURRENCY_ID)
-				.map(|(account_id, _, initial_balance)| (account_id, initial_balance))
-				.collect::<Vec<_>>(),
+		stp258::GenesisConfig::<Runtime> {
+			endowed_accounts: self.endowed_accounts,
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		if self.treasury_genesis {
+			pallet_treasury::GenesisConfig::default()
+				.assimilate_storage::<Runtime, _>(&mut t)
+				.unwrap();
+
+			pallet_elections_phragmen::GenesisConfig::<Runtime> {
+				members: vec![(TREASURY_ACCOUNT, 10)],
 			}
+			.assimilate_storage(&mut t)
+			.unwrap();
 		}
-		.assimilate_storage(&mut t)
-		.unwrap();
 
-		orml_tokens::GenesisConfig::<Runtime> {
-			endowed_accounts: self
-				.endowed_accounts
-				.into_iter()
-				.filter(|(_, currency_id, _)| *currency_id != NATIVE_CURRENCY_ID)
-				.collect::<Vec<_>>(),
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-		t.into()
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| System::set_block_number(1));
+		ext
 	}
 }
