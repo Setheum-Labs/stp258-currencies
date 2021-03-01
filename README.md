@@ -2,8 +2,6 @@
 Multi-Currency Stablecoin SERP Module
 
 ## Overview
-  The stp258 module provides a mixed stablecoin system, by configuring a
-## Overview
 
 The stp258 module provides fungible multiple stable currencies functionality that implements `SettCurrency` trait.
 
