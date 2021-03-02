@@ -239,7 +239,6 @@ pub mod module {
 	pub type BaseUnit<T: Config> = StorageMap<_, Twox64Concat, T::CurrencyId, T::Balance, ValueQuery>;
 
 	/// The minimum amount of SettCurrency that will be in circulation.
-	/// The total issuance of a token type.
 	#[pallet::storage]
 	#[pallet::getter(fn minimum_issuance)]
 	pub type MinimumIssuance<T: Config> = StorageMap<_, Twox64Concat, T::CurrencyId, T::Balance, ValueQuery>;
@@ -368,6 +367,7 @@ pub mod module {
 			Self::deposit_event(Event::Transferred(currency_id, from, to, balance));
 			Ok(().into())
 		}
+
 	}
 }
 
