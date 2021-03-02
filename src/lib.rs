@@ -1,34 +1,3 @@
-//! # Setheum Tokenization Protocol 258
-//! Multi-Currency Stablecoin SERP Module
-//!
-//!
-//! ## Overview
-//!
-//! The stp258 module provides a mixed stablecoin system, by configuring a
-//! native currency which implements `BasicCurrencyExtended`, and a
-//! multi-currency which implements `SettCurrency`.
-//!
-//! ### Implementations
-//!
-//! The stp258 module provides implementations for following traits.
-//!
-//! - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system including `expand_supply` and `contract_supply` functions.
-//! - `SettCurrencyExtended` - Extended `SettCurrency` with additional helper
-//!   types and methods, like updating balance
-//! by a given signed integer amount.
-//!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! - `transfer` - Transfer some balance to another account, in a given
-//!   currency.
-//! - `transfer_native_currency` - Transfer some balance to another account, in
-//!   native currency set in
-//! `Config::NativeCurrency`.
-//! - `update_balance` - Update balance by signed integer amount, in a given
-//!   currency, root origin required.
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unused_unit)]
 
@@ -49,7 +18,7 @@ use orml_traits::{
 	MultiLockableCurrency as SettCurrencyLockable, MultiReservableCurrency as SettCurrencyReservable,
 };
 use orml_utilities::with_transaction_result;
-use sp_runtime::{SettCurrency
+use sp_runtime::{
 	traits::{CheckedSub, MaybeSerializeDeserialize, StaticLookup, Zero},
 	DispatchError, DispatchResult,
 };
@@ -82,15 +51,15 @@ pub mod module {
 	pub(crate) type CurrencyIdOf<T> =
 		<<T as Config>::SettCurrency as SettCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
 	pub(crate) type AmountOf<T> =
-		<<T as Config>::SettCurrency as SettCurrencyExteSettCurrencynded<<T as frame_system::Config>::AccountId>>::Amount;
-	
+		<<T as Config>::SettCurrency as SettCurrencyExtended<<T as frame_system::Config>::AccountId>>::Amount;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		type SettCurrency: MergeAccount<Self::AccountId>
 			+ SettCurrencyExtended<Self::AccountId>
-			+ SettCurrencyLockable<Self::AccountId>
+			+ SettCurrency<Self::AccountId>
 			+ SettCurrencyReservable<Self::AccountId>;
 
 		type NativeCurrency: BasicCurrencyExtended<Self::AccountId, Balance = BalanceOf<Self>, Amount = AmountOf<Self>>
@@ -102,16 +71,6 @@ pub mod module {
 
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
-		
-		/// The amount of currency that are meant to track the value. Example: A value of 1_000 when tracking
-		/// Dollars means that the Stablecoin will try to maintain a price of 1_000 Coins for 1$.
-		type BaseUnit: Get<CurrencyIdOf>;
-		/// The initial supply of Coins.
-		type InitialSupply: Get<CurrencyIdOf>;
-		/// The minimum amount of Coins in circulation.
-		///
-		/// Must be lower than `InitialSupply`.
-		type MinimumSupply: Get<CurrencyIdOf>;
 	}
 
 	#[pallet::error]
@@ -133,23 +92,7 @@ pub mod module {
 		Deposited(CurrencyIdOf<T>, T::AccountId, BalanceOf<T>),
 		/// Withdraw success. [currency_id, who, amount]
 		Withdrawn(CurrencyIdOf<T>, T::AccountId, BalanceOf<T>),
-		/// The supply was expanded by the amount.
-		ExpandedSupply(CurrencyIdOf<T>, AmountOf<T>),
-		/// The supply was contracted by the amount.
-		ContractedSupply(CurrencyIdOf<T>, AmountOf<T>),
 	}
-
-	/// The total amount of SettCurrency in circulation.
-	#[pallet::storage]
-	#[pallet::getter(fn settcurrency_supply): Get<CurrencyId> = 0]
-	pub type SettCurrencySupply<T: Config> = 
-			StorageMap<_, Twox64Concat, T::CurrencyId, T::Balance, ValueQuery>;
-	
-	/// The total issuance of a token type.
-	#[pallet::storage]
-	#[pallet::getter(fn total_issuance)]
-	pub type TotalIssuance<T: Config> = StorageMap<_, Twox64Concat, T::CurrencyId, T::Balance, ValueQuery>;
-
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -159,13 +102,6 @@ pub mod module {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		
-		/// The amount of stablecoins that represent 1 external value (e.g., 1$).
-		const BaseUnit: T::CurrencyId = T::BaseUnit::get();
-
-		/// The minimum amount of Coins that will be in circulation.
-		const MinimumSupply: T::CurrencyId = T::MinimumSupply::get();
-
 		/// Transfer some balance to another account under `currency_id`.
 		///
 		/// The dispatch origin for this call must be `Signed` by the
@@ -322,51 +258,6 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 			T::SettCurrency::slash(currency_id, who, amount)
 		}
 	}
-
-	fn expand_supply(settcurrency_supply: Self::CurrencyId, amount: Self::Amount) -> DispatchResult {
-    
-		if currency_id == T::GetNativeCurrencyId::get() {
-			debug::warn!("Cannot expand supply for NativeCurrency: {}", currency_id);
-			return Err(http::Error::Unknown);
-		} else {
-			T::SettCurrency::expand_supply(currency_id, amount)?;
-		}
-		let mut remaining = amount;
-		// Checking whether the supply will overflow.
-		settcurrency_supply
-			.checked_add(currency_id, amount)
-			.ok_or(Error::<T>::SettCurrencySupplyOverflow)?;
-		let new_supply = settcurrency_supply + amount - remaining;
-		native::info!("expanded supply by minting {} {} sett currency", currency_id, amount);
-		<SettCurrencySupply>::put(new_supply);
-		}
-		Self::deposit_event(RawEvent::ExpandedSupply(currency_id, amount));
-		Ok(())
-	}
-
-	fn contract_supply(settcurrency_supply: Self::CurrencyId, amount: Self::Amount) -> DispatchResult {
-    // Contract Stable currencies but Do not contract the supply of NativeCurrency/Asset (Dinar)
-		if currency_id == T::GetNativeCurrencyId::get() {
-			debug::warn!("Cannot contract supply for NativeCurrency: {}", currency_id);
-			return Err(http::Error::Unknown);
-		} else {
-			T::SettCurrency::contract_supply(currency_id, amount)?;
-		}
-		// Checking whether SettCurrency supply would underflow.
-		let mut remaining = amount;
-		let remaining_supply = settcurrency_supply;
-		/// take this here vvvvvvvvvvvvvvvvvvvvvvvvvvv
-		let burned = amount.saturating_sub(remaining);
-		debug_assert!(
-			burned <= settcurrency_supply,
-			"burned <= amount < settcurrency_supply is checked by settcurrency underflow check in first lines"
-		);
-		let new_supply = settcurrency_supply.saturating_sub(burned);
-		<SettCurrencySupply>::put(new_supply);
-		native::info!("contracted supply of: {} by: {}", currency_id, burned);
-		Self::deposit_event(RawEvent::ContractedSupply(currency_id, burned));
-		Ok(())
-	}
 }
 
 impl<T: Config> SettCurrencyExtended<T::AccountId> for Pallet<T> {
@@ -383,7 +274,7 @@ impl<T: Config> SettCurrencyExtended<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> SettCurrencySettCurrencyLockable<T::AccountId> for Pallet<T> {
+impl<T: Config> SettCurrencyLockable<T::AccountId> for Pallet<T> {
 	type Moment = T::BlockNumber;
 
 	fn set_lock(
@@ -488,32 +379,6 @@ where
 
 	fn minimum_balance() -> Self::Balance {
 		<Pallet<T>>::minimum_balance(GetCurrencyId::get())
-	}
-		
-	fn burn(mut amount: Self::Balance) -> Self::PositiveImbalance {
-		if amount.is_zero() {
-			return PositiveImbalance::zero();
-		}
-		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
-			*issued = issued.checked_sub(&amount).unwrap_or_else(|| {
-				amount = *issued;
-				Zero::zero()
-			});
-		});
-		PositiveImbalance::new(amount)
-	}
-
-	fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
-		if amount.is_zero() {
-			return NegativeImbalance::zero();
-		}
-		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
-			*issued = issued.checked_add(&amount).unwrap_or_else(|| {
-				amount = Self::Balance::max_value() - *issued;
-				Self::Balance::max_value()
-			})
-		});
-		NegativeImbalance::new(amount)
 	}
 
 	fn total_issuance() -> Self::Balance {
@@ -644,32 +509,6 @@ where
 
 	fn minimum_balance() -> Self::Balance {
 		Currency::minimum_balance()
-	}
-
-	fn burn(mut amount: Self::Balance) -> Self::PositiveImbalance {
-		if amount.is_zero() {
-			return PositiveImbalance::zero();
-		}
-		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
-			*issued = issued.checked_sub(&amount).unwrap_or_else(|| {
-				amount = *issued;
-				Zero::zero()
-			});
-		});
-		PositiveImbalance::new(amount)
-	}
-
-	fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
-		if amount.is_zero() {
-			return NegativeImbalance::zero();
-		}
-		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
-			*issued = issued.checked_add(&amount).unwrap_or_else(|| {
-				amount = Self::Balance::max_value() - *issued;
-				Self::Balance::max_value()
-			})
-		});
-		NegativeImbalance::new(amount)
 	}
 
 	fn total_issuance() -> Self::Balance {

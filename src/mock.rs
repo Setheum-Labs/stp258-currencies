@@ -14,8 +14,13 @@ use sp_runtime::{
 
 use crate as currencies;
 
+const TEST_BASE_UNIT: u64 = 1000;
+
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
+	pub const BaseUnit: u64 = TEST_BASE_UNIT;
+	pub const InitialSupply: u64 = 100 * BaseUnit::get();
+	pub const MinimumSupply: u64 = BaseUnit::get();
 }
 
 pub type AccountId = AccountId32;
@@ -71,14 +76,14 @@ parameter_types! {
 	pub DustAccount: AccountId = ModuleId(*b"orml/dst").into_account();
 }
 
-impl orml_tokens::Config for Runtime {
+impl stp258_tokens::Config for Runtime {
 	type Event = Event;
 	type Balance = Balance;
 	type Amount = i64;
 	type CurrencyId = CurrencyId;
 	type WeightInfo = ();
 	type ExistentialDeposits = ExistentialDeposits;
-	type OnDust = orml_tokens::TransferDust<Runtime, DustAccount>;
+	type OnDust = stp258_tokens::TransferDust<Runtime, DustAccount>;
 }
 
 pub const NATIVE_CURRENCY_ID: CurrencyId = 1;
@@ -86,14 +91,20 @@ pub const X_TOKEN_ID: CurrencyId = 2;
 
 parameter_types! {
 	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
+	pub const BaseUnit: u64 = TEST_BASE_UNIT;
+	pub const InitialSupply: u64 = 100 * BaseUnit::get();
+	pub const MinimumSupply: u64 = BaseUnit::get();
 }
 
 impl Config for Runtime {
 	type Event = Event;
-	type SettCurrency = Tokens;
+	type SettCurrency = Stp258Tokens;
 	type NativeCurrency = AdaptedBasicCurrency;
 	type GetNativeCurrencyId = GetNativeCurrencyId;
 	type WeightInfo = ();
+	type BaseUnit = BaseUnit;
+	type InitialSupply = InitialSupply;
+	type MinimumSupply = MinimumSupply;
 }
 pub type NativeCurrency = NativeCurrencyOf<Runtime>;
 pub type AdaptedBasicCurrency = BasicCurrencyAdapter<Runtime, PalletBalances, i64, u64>;
@@ -108,8 +119,8 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Storage, Config, Event<T>},
-		Currencies: currencies::{Module, Call, Event<T>},
-		Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
+		Stp258: stp258::{Module, Call, Event<T>},
+		Stp258Tokens: stp258_tokens::{Module, Storage, Event<T>, Config<T>},
 		PalletBalances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 	}
 );
@@ -163,7 +174,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		orml_tokens::GenesisConfig::<Runtime> {
+		stp258_tokens::GenesisConfig::<Runtime> {
 			endowed_accounts: self
 				.endowed_accounts
 				.into_iter()
