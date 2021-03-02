@@ -479,6 +479,32 @@ where
 	fn minimum_balance() -> Self::Balance {
 		<Pallet<T>>::minimum_balance(GetCurrencyId::get())
 	}
+		
+	fn burn(mut amount: Self::Balance) -> Self::PositiveImbalance {
+		if amount.is_zero() {
+			return PositiveImbalance::zero();
+		}
+		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
+			*issued = issued.checked_sub(&amount).unwrap_or_else(|| {
+				amount = *issued;
+				Zero::zero()
+			});
+		});
+		PositiveImbalance::new(amount)
+	}
+
+	fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
+		if amount.is_zero() {
+			return NegativeImbalance::zero();
+		}
+		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
+			*issued = issued.checked_add(&amount).unwrap_or_else(|| {
+				amount = Self::Balance::max_value() - *issued;
+				Self::Balance::max_value()
+			})
+		});
+		NegativeImbalance::new(amount)
+	}
 
 	fn total_issuance() -> Self::Balance {
 		<Pallet<T>>::total_issuance(GetCurrencyId::get())
@@ -608,6 +634,32 @@ where
 
 	fn minimum_balance() -> Self::Balance {
 		Currency::minimum_balance()
+	}
+
+	fn burn(mut amount: Self::Balance) -> Self::PositiveImbalance {
+		if amount.is_zero() {
+			return PositiveImbalance::zero();
+		}
+		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
+			*issued = issued.checked_sub(&amount).unwrap_or_else(|| {
+				amount = *issued;
+				Zero::zero()
+			});
+		});
+		PositiveImbalance::new(amount)
+	}
+
+	fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
+		if amount.is_zero() {
+			return NegativeImbalance::zero();
+		}
+		<TotalIssuance<T>>::mutate(GetCurrencyId::get(), |issued| {
+			*issued = issued.checked_add(&amount).unwrap_or_else(|| {
+				amount = Self::Balance::max_value() - *issued;
+				Self::Balance::max_value()
+			})
+		});
+		NegativeImbalance::new(amount)
 	}
 
 	fn total_issuance() -> Self::Balance {
