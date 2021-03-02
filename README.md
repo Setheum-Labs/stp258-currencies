@@ -1,20 +1,33 @@
-# Setheum Tokenization Protocol 258
-Multi-Currency Stablecoin SERP Module
+ # Setheum Tokenization Protocol 258
+ Multi-Currency Stablecoin SERP Module
 
-## Overview
 
-The stp258 module provides fungible multiple stable currencies functionality that implements `SettCurrency` trait.
+ ## Overview
 
-The stp258 module provides functions for:
+ The stp258 module provides a mixed stablecoin system, by configuring a
+ native currency which implements `BasicCurrencyExtended`, and a
+ multi-currency which implements `SettCurrency`.
 
-- Querying and setting the balance of a given account.
-- Getting and managing total issuance.
-- Balance transfer between accounts.
-- Depositing and withdrawing balance.
-- Slashing an account balance.
-- Minting and Burning currencies.
-- Fetching prices for currencies.
-- A basket_token could be made by combining a basket of prices into one in any desired ratio. Could be done on runtime, the basket_token price_of_pegs and basket_ratio logic could be defined in an offchain worker and fed on-chain.
+ ### Implementations
+
+ The stp258 module provides implementations for following traits.
+
+ - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system including `expand_supply` and `contract_supply` functions.
+ - `SettCurrencyExtended` - Extended `SettCurrency` with additional helper
+   types and methods, like updating balance
+ by a given signed integer amount.
+
+ ## Interface
+
+ ### Dispatchable Functions
+
+ - `transfer` - Transfer some balance to another account, in a given
+   currency.
+ - `transfer_native_currency` - Transfer some balance to another account, in
+   native currency set in
+ `Config::NativeCurrency`.
+ - `update_balance` - Update balance by signed integer amount, in a given
+   currency, root origin required.
  
 ## Acknowledgement & Reference
 
