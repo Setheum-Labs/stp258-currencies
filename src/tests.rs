@@ -126,11 +126,11 @@ fn frozen_can_limit_liquidity() {
 		.execute_with(|| {
 			assert_ok!(Stp258::set_lock(ID_1, DOT, &ALICE, 90));
 			assert_noop!(
-				<Stp258 as MultiCurrency<_>>::transfer(DOT, &ALICE, &BOB, 11),
+				<Stp258 as SettCurrency<_>>::transfer(DOT, &ALICE, &BOB, 11),
 				Error::<Runtime>::LiquidityRestrictions,
 			);
 			assert_ok!(Stp258::set_lock(ID_1, DOT, &ALICE, 10));
-			assert_ok!(<Stp258 as MultiCurrency<_>>::transfer(DOT, &ALICE, &BOB, 11),);
+			assert_ok!(<Stp258 as SettCurrency<_>>::transfer(DOT, &ALICE, &BOB, 11),);
 		});
 }
 
