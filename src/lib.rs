@@ -81,7 +81,7 @@ pub mod module {
 		<<T as Config>::SettCurrency as SettCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
 	pub(crate) type AmountOf<T> =
 		<<T as Config>::SettCurrency as SettCurrencyExteSettCurrencynded<<T as frame_system::Config>::AccountId>>::Amount;
-
+	
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -139,9 +139,15 @@ pub mod module {
 
 	/// The total amount of SettCurrency in circulation.
 	#[pallet::storage]
-	#[pallet::getter(fn total_issuance): Get<CurrencyId> = 0]
+	#[pallet::getter(fn settcurrency_supply): Get<CurrencyId> = 0]
 	pub type SettCurrencySupply<T: Config> = 
-			StorageValue<_, CurrencyIdOf<T>, AmountOf<T>, ValueQuery>;
+			StorageMap<_, Twox64Concat, T::CurrencyId, T::Balance, ValueQuery>;
+	
+	/// The total issuance of a token type.
+	#[pallet::storage]
+	#[pallet::getter(fn total_issuance)]
+	pub type TotalIssuance<T: Config> = StorageMap<_, Twox64Concat, T::CurrencyId, T::Balance, ValueQuery>;
+
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -352,6 +358,7 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 			burned <= settcurrency_supply,
 			"burned <= amount < settcurrency_supply is checked by settcurrency underflow check in first lines"
 		);
+		let new_supply = settcurrency_supply.saturating_sub(burned);
 		<SettCurrencySupply>::put(new_supply);
 		native::info!("contracted supply of: {} by: {}", currency_id, burned);
 		Self::deposit_event(RawEvent::ContractedSupply(currency_id, burned));
