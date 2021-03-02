@@ -90,7 +90,7 @@ parameter_types! {
 
 impl Config for Runtime {
 	type Event = Event;
-	type MultiCurrency = Tokens;
+	type SettCurrency = Tokens;
 	type NativeCurrency = AdaptedBasicCurrency;
 	type GetNativeCurrencyId = GetNativeCurrencyId;
 	type WeightInfo = ();

@@ -8,7 +8,7 @@ use mock::{Event, *};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
-fn multi_lockable_currency_should_work() {
+fn sett_currency_lockable_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
 		.build()
@@ -21,7 +21,7 @@ fn multi_lockable_currency_should_work() {
 }
 
 #[test]
-fn multi_reservable_currency_should_work() {
+fn sett_currency_reservable_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
 		.build()
@@ -87,7 +87,7 @@ fn basic_currency_adapting_pallet_balances_reservable() {
 }
 
 #[test]
-fn multi_currency_should_work() {
+fn sett_currency_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
 		.build()
@@ -99,12 +99,12 @@ fn multi_currency_should_work() {
 }
 
 #[test]
-fn multi_currency_extended_should_work() {
+fn sett_currency_extended_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
-			assert_ok!(<Currencies as MultiCurrencyExtended<AccountId>>::update_balance(
+			assert_ok!(<Currencies as SettCurrencyExtended<AccountId>>::update_balance(
 				X_TOKEN_ID, &ALICE, 50
 			));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &ALICE), 150);
@@ -140,7 +140,7 @@ fn native_currency_extended_should_work() {
 			assert_ok!(NativeCurrency::update_balance(&ALICE, 10));
 			assert_eq!(NativeCurrency::free_balance(&ALICE), 110);
 
-			assert_ok!(<Currencies as MultiCurrencyExtended<AccountId>>::update_balance(
+			assert_ok!(<Currencies as SettCurrencyExtended<AccountId>>::update_balance(
 				NATIVE_CURRENCY_ID,
 				&ALICE,
 				10
@@ -258,7 +258,7 @@ fn call_event_should_work() {
 			let transferred_event = Event::currencies(crate::Event::Transferred(X_TOKEN_ID, ALICE, BOB, 50));
 			assert!(System::events().iter().any(|record| record.event == transferred_event));
 
-			assert_ok!(<Currencies as MultiCurrency<AccountId>>::transfer(
+			assert_ok!(<Currencies as SettCurrency<AccountId>>::transfer(
 				X_TOKEN_ID, &ALICE, &BOB, 10
 			));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &ALICE), 40);
@@ -267,7 +267,7 @@ fn call_event_should_work() {
 			let transferred_event = Event::currencies(crate::Event::Transferred(X_TOKEN_ID, ALICE, BOB, 10));
 			assert!(System::events().iter().any(|record| record.event == transferred_event));
 
-			assert_ok!(<Currencies as MultiCurrency<AccountId>>::deposit(
+			assert_ok!(<Currencies as SettCurrency<AccountId>>::deposit(
 				X_TOKEN_ID, &ALICE, 100
 			));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &ALICE), 140);
@@ -275,7 +275,7 @@ fn call_event_should_work() {
 			let transferred_event = Event::currencies(crate::Event::Deposited(X_TOKEN_ID, ALICE, 100));
 			assert!(System::events().iter().any(|record| record.event == transferred_event));
 
-			assert_ok!(<Currencies as MultiCurrency<AccountId>>::withdraw(
+			assert_ok!(<Currencies as SettCurrency<AccountId>>::withdraw(
 				X_TOKEN_ID, &ALICE, 20
 			));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &ALICE), 120);
