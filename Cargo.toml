@@ -18,6 +18,7 @@ frame-system = { version = "3.0.0", default-features = false }
 
 orml-traits = { default-features = false, version = '0.4.0' }
 funty = { version = "1.1.0", default-features = false } # https://github.com/bitvecto-rs/bitvec/issues/105
+orml-utilities = { version = "0.4.0", default-features = false }
 
 num-rational = { default-features = false, version = '0.3.2' }
 num-traits = { version = "0.2.14", default-features = false }
@@ -26,8 +27,8 @@ fixed = { default-features = false, version = '1.6.0' }
 [dev-dependencies]
 sp-core = "3.0.0"
 sp-io = "3.0.0"
-pallet-treasury = "3.0.0"
-pallet-elections-phragmen = "3.0.0"
+pallet-balances = "3.0.0"
+orml-tokens = "0.4.0"
 
 [features]
 default = ["std"]
@@ -39,6 +40,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"orml-traits/std",
+	"orml-utilities/std",
     "num-rational/std",
 	"num-traits/std",
     "fixed/std",

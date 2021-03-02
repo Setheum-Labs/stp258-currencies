@@ -3,34 +3,22 @@
 #![cfg(test)]
 
 use super::*;
-use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ChangeMembers, Contains, ContainsLengthBound, SaturatingCurrencyToVote},
-};
+use frame_support::{construct_runtime, parameter_types};
 use orml_traits::parameter_type_with_key;
 use sp_core::H256;
-use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, Permill};
-use sp_std::cell::RefCell;
+use sp_runtime::{
+	testing::Header,
+	traits::{AccountIdConversion, IdentityLookup},
+	AccountId32, ModuleId,
+};
 
-pub type AccountId = AccountId32;
-pub type CurrencyId = u32;
-pub type Balance = u64;
-
-pub const DOT: CurrencyId = 1;
-pub const BTC: CurrencyId = 2;
-pub const ETH: CurrencyId = 3;
-pub const ALICE: AccountId = AccountId32::new([0u8; 32]);
-pub const BOB: AccountId = AccountId32::new([1u8; 32]);
-pub const TREASURY_ACCOUNT: AccountId = AccountId32::new([2u8; 32]);
-pub const ID_1: LockIdentifier = *b"1       ";
-pub const ID_2: LockIdentifier = *b"2       ";
-
-use crate as stp258;
+use crate as currencies;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
+pub type AccountId = AccountId32;
 impl frame_system::Config for Runtime {
 	type Origin = Origin;
 	type Call = Call;
@@ -47,7 +35,7 @@ impl frame_system::Config for Runtime {
 	type BlockLength = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type DbWeight = ();
@@ -56,149 +44,26 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 }
 
-thread_local! {
-	static TEN_TO_FOURTEEN: RefCell<Vec<AccountId>> = RefCell::new(vec![
-		AccountId32::new([10u8; 32]),
-		AccountId32::new([11u8; 32]),
-		AccountId32::new([12u8; 32]),
-		AccountId32::new([13u8; 32]),
-		AccountId32::new([14u8; 32]),
-	]);
-}
-
-pub struct TenToFourteen;
-impl Contains<AccountId> for TenToFourteen {
-	fn sorted_members() -> Vec<AccountId> {
-		TEN_TO_FOURTEEN.with(|v| v.borrow().clone())
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn add(new: &AccountId) {
-		TEN_TO_FOURTEEN.with(|v| {
-			let mut members = v.borrow_mut();
-			members.push(*new);
-			members.sort();
-		})
-	}
-}
-
-impl ContainsLengthBound for TenToFourteen {
-	fn max_len() -> usize {
-		TEN_TO_FOURTEEN.with(|v| v.borrow().len())
-	}
-	fn min_len() -> usize {
-		0
-	}
-}
+type CurrencyId = u32;
+type Balance = u64;
 
 parameter_types! {
-	pub const ProposalBond: Permill = Permill::from_percent(5);
-	pub const ProposalBondMinimum: u64 = 1;
-	pub const SpendPeriod: u64 = 2;
-	pub const Burn: Permill = Permill::from_percent(50);
-	pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
-	pub const GetTokenId: CurrencyId = DOT;
+	pub const ExistentialDeposit: u64 = 1;
 }
 
-impl pallet_treasury::Config for Runtime {
-	type ModuleId = TreasuryModuleId;
-	type Currency = CurrencyAdapter<Runtime, GetTokenId>;
-	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
-	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
+impl pallet_balances::Config for Runtime {
+	type Balance = Balance;
+	type DustRemoval = ();
 	type Event = Event;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ProposalBondMinimum;
-	type SpendPeriod = SpendPeriod;
-	type Burn = Burn;
-	type BurnDestination = ();
-	type SpendFunds = ();
-	type WeightInfo = ();
-}
-
-thread_local! {
-	pub static MEMBERS: RefCell<Vec<AccountId>> = RefCell::new(vec![]);
-	pub static PRIME: RefCell<Option<AccountId>> = RefCell::new(None);
-}
-
-pub struct TestChangeMembers;
-impl ChangeMembers<AccountId> for TestChangeMembers {
-	fn change_members_sorted(incoming: &[AccountId], outgoing: &[AccountId], new: &[AccountId]) {
-		// new, incoming, outgoing must be sorted.
-		let mut new_sorted = new.to_vec();
-		new_sorted.sort();
-		assert_eq!(new, &new_sorted[..]);
-
-		let mut incoming_sorted = incoming.to_vec();
-		incoming_sorted.sort();
-		assert_eq!(incoming, &incoming_sorted[..]);
-
-		let mut outgoing_sorted = outgoing.to_vec();
-		outgoing_sorted.sort();
-		assert_eq!(outgoing, &outgoing_sorted[..]);
-
-		// incoming and outgoing must be disjoint
-		for x in incoming.iter() {
-			assert!(outgoing.binary_search(x).is_err());
-		}
-
-		let mut old_plus_incoming = MEMBERS.with(|m| m.borrow().to_vec());
-		old_plus_incoming.extend_from_slice(incoming);
-		old_plus_incoming.sort();
-
-		let mut new_plus_outgoing = new.to_vec();
-		new_plus_outgoing.extend_from_slice(outgoing);
-		new_plus_outgoing.sort();
-
-		assert_eq!(
-			old_plus_incoming, new_plus_outgoing,
-			"change members call is incorrect!"
-		);
-
-		MEMBERS.with(|m| *m.borrow_mut() = new.to_vec());
-		PRIME.with(|p| *p.borrow_mut() = None);
-	}
-
-	fn set_prime(who: Option<AccountId>) {
-		PRIME.with(|p| *p.borrow_mut() = who);
-	}
-}
-
-parameter_types! {
-	pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
-	pub const CandidacyBond: u64 = 3;
-	pub const VotingBond: u64 = 2;
-	pub const DesiredMembers: u32 = 2;
-	pub const DesiredRunnersUp: u32 = 2;
-	pub const TermDuration: u64 = 5;
-	pub const VotingBondBase: u64 = 2;
-	pub const VotingBondFactor: u64 = 0;
-}
-
-impl pallet_elections_phragmen::Config for Runtime {
-	type ModuleId = ElectionsPhragmenModuleId;
-	type Event = Event;
-	type Currency = CurrencyAdapter<Runtime, GetTokenId>;
-	type CurrencyToVote = SaturatingCurrencyToVote;
-	type ChangeMembers = TestChangeMembers;
-	type InitializeMembers = ();
-	type CandidacyBond = CandidacyBond;
-	type VotingBondBase = VotingBondBase;
-	type VotingBondFactor = VotingBondFactor;
-	type TermDuration = TermDuration;
-	type DesiredMembers = DesiredMembers;
-	type DesiredRunnersUp = DesiredRunnersUp;
-	type LoserCandidate = ();
-	type KickedMember = ();
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = frame_system::Module<Runtime>;
+	type MaxLocks = ();
 	type WeightInfo = ();
 }
 
 parameter_type_with_key! {
 	pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
-		match currency_id {
-			&BTC => 1,
-			&DOT => 2,
-			_ => 0,
-		}
+		Default::default()
 	};
 }
 
@@ -206,16 +71,32 @@ parameter_types! {
 	pub DustAccount: AccountId = ModuleId(*b"orml/dst").into_account();
 }
 
-impl Config for Runtime {
+impl orml_tokens::Config for Runtime {
 	type Event = Event;
 	type Balance = Balance;
 	type Amount = i64;
 	type CurrencyId = CurrencyId;
 	type WeightInfo = ();
 	type ExistentialDeposits = ExistentialDeposits;
-	type OnDust = TransferDust<Runtime, DustAccount>;
+	type OnDust = orml_tokens::TransferDust<Runtime, DustAccount>;
 }
-pub type TreasuryCurrencyAdapter = <Runtime as pallet_treasury::Config>::Currency;
+
+pub const NATIVE_CURRENCY_ID: CurrencyId = 1;
+pub const X_TOKEN_ID: CurrencyId = 2;
+
+parameter_types! {
+	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
+}
+
+impl Config for Runtime {
+	type Event = Event;
+	type MultiCurrency = Tokens;
+	type NativeCurrency = AdaptedBasicCurrency;
+	type GetNativeCurrencyId = GetNativeCurrencyId;
+	type WeightInfo = ();
+}
+pub type NativeCurrency = NativeCurrencyOf<Runtime>;
+pub type AdaptedBasicCurrency = BasicCurrencyAdapter<Runtime, PalletBalances, i64, u64>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -227,22 +108,25 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Storage, Config, Event<T>},
-		Stp258: stp258::{Module, Storage, Event<T>, Config<T>},
-		Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
-		ElectionsPhragmen: pallet_elections_phragmen::{Module, Call, Storage, Event<T>},
+		Currencies: currencies::{Module, Call, Event<T>},
+		Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
+		PalletBalances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 	}
 );
 
+pub const ALICE: AccountId = AccountId32::new([1u8; 32]);
+pub const BOB: AccountId = AccountId32::new([2u8; 32]);
+pub const EVA: AccountId = AccountId32::new([5u8; 32]);
+pub const ID_1: LockIdentifier = *b"1       ";
+
 pub struct ExtBuilder {
 	endowed_accounts: Vec<(AccountId, CurrencyId, Balance)>,
-	treasury_genesis: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			endowed_accounts: vec![],
-			treasury_genesis: false,
 		}
 	}
 }
@@ -254,12 +138,12 @@ impl ExtBuilder {
 	}
 
 	pub fn one_hundred_for_alice_n_bob(self) -> Self {
-		self.balances(vec![(ALICE, DOT, 100), (BOB, DOT, 100)])
-	}
-
-	pub fn one_hundred_for_treasury_account(mut self) -> Self {
-		self.treasury_genesis = true;
-		self.balances(vec![(TREASURY_ACCOUNT, DOT, 100)])
+		self.balances(vec![
+			(ALICE, NATIVE_CURRENCY_ID, 100),
+			(BOB, NATIVE_CURRENCY_ID, 100),
+			(ALICE, X_TOKEN_ID, 100),
+			(BOB, X_TOKEN_ID, 100),
+		])
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {
@@ -267,26 +151,28 @@ impl ExtBuilder {
 			.build_storage::<Runtime>()
 			.unwrap();
 
-		stp258::GenesisConfig::<Runtime> {
-			endowed_accounts: self.endowed_accounts,
+		pallet_balances::GenesisConfig::<Runtime> {
+			balances: self
+				.endowed_accounts
+				.clone()
+				.into_iter()
+				.filter(|(_, currency_id, _)| *currency_id == NATIVE_CURRENCY_ID)
+				.map(|(account_id, _, initial_balance)| (account_id, initial_balance))
+				.collect::<Vec<_>>(),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		if self.treasury_genesis {
-			pallet_treasury::GenesisConfig::default()
-				.assimilate_storage::<Runtime, _>(&mut t)
-				.unwrap();
-
-			pallet_elections_phragmen::GenesisConfig::<Runtime> {
-				members: vec![(TREASURY_ACCOUNT, 10)],
-			}
-			.assimilate_storage(&mut t)
-			.unwrap();
+		orml_tokens::GenesisConfig::<Runtime> {
+			endowed_accounts: self
+				.endowed_accounts
+				.into_iter()
+				.filter(|(_, currency_id, _)| *currency_id != NATIVE_CURRENCY_ID)
+				.collect::<Vec<_>>(),
 		}
+		.assimilate_storage(&mut t)
+		.unwrap();
 
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
-		ext
+		t.into()
 	}
 }
