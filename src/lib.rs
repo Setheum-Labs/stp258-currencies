@@ -157,6 +157,39 @@ impl<Balance: Saturating + Copy + Ord> AccountData<Balance> {
 	}
 }
 
+/// Pending atomic swap operation.
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, Encode, Decode)]
+pub struct PendingSwap<T: Config> {
+	/// Source of the swap.
+	pub source: T::AccountId,
+	/// Action of this swap.
+	pub action: T::SettSwap,
+	/// End block of the lock.
+	pub end_block: T::BlockNumber,
+}
+
+/// Hashed proof type.
+pub type HashedProof = [u8; 32];
+
+/// Definition of a pending atomic swap action. It contains the following three phrases:
+///
+/// - **Reserve**: reserve the resources needed for a swap. This is to make sure that **Claim**
+/// succeeds with best efforts.
+/// - **Claim**: claim any resources reserved in the first phrase.
+/// - **Cancel**: cancel any resources reserved in the first phrase.
+pub trait SettSwap<AccountId, T: Config> {
+	/// Reserve the resources needed for the swap, from the given `source`. The reservation is
+	/// allowed to fail. If that is the case, the the full swap creation operation is cancelled.
+	fn reserve(&self, currency_id: CurrencyIdOf<T>, source: &AccountId, value: Self::Balance) -> DispatchResult;
+	/// Claim the reserved resources, with `source` and `target`. Returns whether the claim
+	/// succeeds.
+	fn claim(&self, currency_id: CurrencyIdOf<T>, source: &AccountId, target: &AccountId, value: Self::Balance) -> bool;
+	/// Weight for executing the operation.
+	fn weight(&self) -> Weight;
+	/// Cancel the resources reserved in `source`.
+	fn cancel(&self, source: &AccountId, value: Self::Balance);
+}
+
 pub use module::*;
 
 #[frame_support::pallet]
@@ -214,6 +247,22 @@ pub mod module {
 		LiquidityRestrictions,
 		/// Account still has active reserved
 		StillHasActiveReserved,
+		/// Swap already exists.
+		AlreadyExist,
+		/// Swap proof is invalid.
+		InvalidProof,
+		/// Swap Proof is too large.
+		ProofTooLarge,
+		/// Swap Source does not match.
+		SourceMismatch,
+		/// Swap has already been claimed.
+		AlreadyClaimed,
+		/// Swap does not exist.
+		NotExist,
+		/// Swap Claim action mismatch.
+		ClaimActionMismatch,
+		/// Swap Duration has not yet passed for the swap to be cancelled.
+		DurationNotPassed,
 	}
 
 	#[pallet::event]
@@ -225,6 +274,13 @@ pub mod module {
 		/// ExistentialDeposit, resulting in an outright loss. \[account,
 		/// currency_id, amount\]
 		DustLost(T::AccountId, T::CurrencyId, T::Balance),
+		/// Swap created. \[account, proof, swap\]
+		NewSwap(AccountId, HashedProof, PendingSwap),
+		/// Swap claimed. The last parameter indicates whether the execution succeeds. 
+		/// \[account, proof, success\]
+		SwapClaimed(AccountId, HashedProof, bool),
+		/// Swap cancelled. \[account, proof\]
+		SwapCancelled(AccountId, HashedProof),
 	}
 
 	/// The total issuance of a token type.
@@ -255,6 +311,20 @@ pub mod module {
 		Twox64Concat,
 		T::CurrencyId,
 		Vec<BalanceLock<T::Balance>>,
+		ValueQuery,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn pending_swaps)]
+	pub type PendingSwaps<T: Config> = StorageDoubleMap<
+		_,
+		twox_64_concat,
+		T::AccountId,
+		Twox64Concat,
+		T::CurrencyId,
+		Blake2_128Concat,
+		HashedProof,
+		Vec<PendingSwap<T>>,
 		ValueQuery,
 	>;
 
@@ -367,6 +437,150 @@ pub mod module {
 
 			Self::deposit_event(Event::Transferred(currency_id, from, to, balance));
 			Ok(().into())
+		}
+
+		/// Register a new atomic swap, declaring an intention to send funds from origin to target
+		/// on the current blockchain. The target can claim the fund using the revealed proof. If
+		/// the fund is not claimed after `duration` blocks, then the sender can cancel the swap.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// - `target`: Receiver of the atomic swap.
+		/// - `hashed_proof`: The blake2_256 hash of the secret proof.
+		/// - `balance`: Funds to be sent from origin.
+		/// - `duration`: Locked duration of the atomic swap. For safety reasons, it is recommended
+		///   that the revealer uses a shorter duration than the counterparty, to prevent the
+		///   situation where the revealer reveals the proof too late around the end block.
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1)
+		.saturating_add(40_000_000))]
+		fn create_swap(
+			origin: OriginFor<T>,
+			target: <T::Lookup as StaticLookup>::Source,
+			currency_id: T::CurrencyId,
+			#[pallet::compact] value: T::Balance,
+			hashed_proof: HashedProof,
+			action: T::SettSwap,
+			duration: T::BlockNumber,
+		) -> DispatchResultWithPostInfo {
+			let source = ensure_signed(origin)?;
+			ensure!(
+				!PendingSwaps::<T>::contains_key(&target, hashed_proof),
+				Error::<T>::AlreadyExist
+			);
+
+			action.reserve(&source, currency_id, value)?;
+
+			let swap = PendingSwap {
+				source,
+				action,
+				currency_id,
+				value,
+				end_block: frame_system::Module::<T>::block_number() + duration,
+			};
+			PendingSwaps::<T>::insert(
+				target.clone(), 
+				hashed_proof.clone(), 
+				swap.clone(), 
+				currency_id.clone(), 
+				value.clone()
+			);
+
+			Self::deposit_event(
+				RawEvent::NewSwap(target, hashed_proof, swap)
+			);
+		}
+
+		/// Claim an atomic swap.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// - `proof`: Revealed proof of the claim.
+		/// - `action`: Action defined in the swap, it must match the entry in blockchain. Otherwise
+		///   the operation fails. This is used for weight calculation.
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1)
+		.saturating_add(40_000_000)
+		.saturating_add((proof.len() as Weight).saturating_mul(100))
+		.saturating_add(action.weight()))
+		]
+		fn claim_swap(
+			origin: OriginFor<T>,
+			target: <T::Lookup as StaticLookup>::Source,
+			action: T::SettSwap,
+			currency_id: T::CurrencyId,
+			#[pallet::compact] value: T::Balance,
+		) -> DispatchResult {
+			ensure!(
+				proof.len() <= T::ProofLimit::get() as usize,
+				Error::<T>::ProofTooLarge,
+			);
+
+			action.repatriate_reserved(currency_id, &source, self.value)?;
+
+			let target = ensure_signed(origin)?;
+			let hashed_proof = blake2_256(&proof);
+
+			let swap = PendingSwaps::<T>::get(&target, hashed_proof, currency_id: CurrencyIdOf<T>, value: BalanceOf<T>)
+				.ok_or(Error::<T>::InvalidProof)?;
+			ensure!(swap.action == action, Error::<T>::ClaimActionMismatch);
+
+			let succeeded = swap.action.claim(&swap.source, &target, currency_id, value);
+
+			PendingSwaps::<T>::remove(
+				target.clone(), 
+				hashed_proof.clone(), 
+				currency_id.clone(), 
+				value.clone()
+			);
+
+			Self::deposit_event(
+				RawEvent::SwapClaimed(target, hashed_proof, succeeded,)
+			);
+
+			Ok(())
+		}
+
+		/// Cancel an atomic swap. Only possible after the originally set duration has passed.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// - `target`: Target of the original atomic swap.
+		/// - `hashed_proof`: Hashed proof of the original atomic swap.
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1).saturating_add(40_000_000))]
+		fn cancel_swap(
+			origin: OriginFor<T>,
+			target: <T::Lookup as StaticLookup>::Source,
+			action: T::SettSwap,
+			currency_id: T::CurrencyId,
+			#[pallet::compact] value: T::Balance,
+			hashed_proof: HashedProof,
+		) {
+
+			action.unreserve(currency_id, &source, self.value)?;
+			
+			let source = ensure_signed(origin)?;
+
+			let swap = PendingSwaps::<T>::get(&target, hashed_proof)
+				.ok_or(Error::<T>::NotExist)?;
+			ensure!(
+				swap.source == source,
+				Error::<T>::SourceMismatch,
+			);
+			ensure!(
+				frame_system::Module::<T>::block_number() >= swap.end_block,
+				Error::<T>::DurationNotPassed,
+			);
+
+			swap.action.cancel(&swap.source);
+			PendingSwaps::<T>::remove(
+				target.clone(), 
+				hashed_proof.clone(), 
+				currency_id.clone(), 
+				value.clone()
+			);
+
+			Self::deposit_event(
+				RawEvent::SwapCancelled(target, hashed_proof)
+			);
 		}
 	}
 }
@@ -814,7 +1028,7 @@ impl<T: Config> MultiReservableCurrency<T::AccountId> for Pallet<T> {
 	) -> sp_std::result::Result<Self::Balance, DispatchError> {
 		if value.is_zero() {
 			return Ok(value);
-		}
+		
 
 		if slashed == beneficiary {
 			return match status {
@@ -1079,5 +1293,46 @@ impl<T: Config> MergeAccount<T::AccountId> for Pallet<T> {
 			<Self as MultiCurrency<T::AccountId>>::transfer(currency_id, source, dest, account_data.free)?;
 			Ok(())
 		})
+	}
+}
+
+impl<T, GetCurrencyId> SettSwap<T::AccountId> for Pallet<T> {
+	fn reserve(&self, currency_id: Self::CurrencyId, source: &T::AccountId, value: Self::Balance) -> DispatchResult {
+		Self::reserve(currency_id, &source, self.value,)
+	}
+
+	fn claim(&self, currency_id: Self::CurrencyId, source: &AccountId, target: &AccountId, value: Self::Balance) -> bool 
+		Self::repatriate_reserved(currency_id, &source, &target, self.value, BalanceStatus::Free).is_ok()
+		
+	}
+
+	fn weight(&self) -> Weight {
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	fn cancel(&self, source: &AccountId, value: Self::Balance) {
+		Self::unreserve(currency_id, &source, self.value)
+	}
+}
+
+impl<T, GetCurrencyId> PalletSettSwap<T::AccountId> for CurrencyAdapter<T, GetCurrencyId>
+where
+	T: Config,
+	GetCurrencyId: Get<T::CurrencyId>,
+{
+	fn reserve(&self, source: &AccountId, value: Self::Balance) -> DispatchResult {
+		Pallet::<T>::reserve(&source, self.value)
+	}
+
+	fn claim(&self, source: &AccountId, target: &AccountId, value: Self::Balance) -> bool {
+		Pallet::<T>::repatriate_reserved(source, target, self.value, BalanceStatus::Free).is_ok()
+	}
+
+	fn weight(&self) -> Weight {
+		T::DbWeight::get().reads_writes(1, 1)
+	}
+
+	fn cancel(&self, source: &AccountId, value: Self::Balance) {
+		Pallet::<T>::unreserve(source, self.value)
 	}
 }
