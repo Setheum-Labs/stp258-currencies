@@ -108,6 +108,16 @@ pub mod module {
 
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
+		
+		/// The amount of currency that are meant to track the value. Example: A value of 1_000 when tracking
+		/// Dollars means that the Stablecoin will try to maintain a price of 1_000 Coins for 1$.
+		type BaseUnit: Get<CurrencyIdOf>;
+		/// The initial supply of Coins.
+		type InitialSupply: Get<CurrencyIdOf>;
+		/// The minimum amount of Coins in circulation.
+		///
+		/// Must be lower than `InitialSupply`.
+		type MinimumSupply: Get<CurrencyIdOf>;
 	}
 
 	#[pallet::error]
@@ -131,6 +141,12 @@ pub mod module {
 		Withdrawn(CurrencyIdOf<T>, T::AccountId, BalanceOf<T>),
 	}
 
+	/// The total amount of SettCurrency in circulation.
+	#[pallet::storage]
+	#[pallet::getter(fn total_issuance): Get<CurrencyId> = 0]
+	pub type SettCurrencySupply<T: Config> = 
+			StorageValue<_, CurrencyIdOf<T>, AmountOf<T>, ValueQuery>;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
@@ -139,6 +155,13 @@ pub mod module {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		
+		/// The amount of stablecoins that represent 1 external value (e.g., 1$).
+		const BaseUnit: T::CurrencyId = T::BaseUnit::get();
+
+		/// The minimum amount of Coins that will be in circulation.
+		const MinimumSupply: T::CurrencyId = T::MinimumSupply::get();
+
 		/// Transfer some balance to another account under `currency_id`.
 		///
 		/// The dispatch origin for this call must be `Signed` by the
