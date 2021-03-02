@@ -1,16 +1,18 @@
-//! # Currencies Module
+//! # Setheum Tokenization Protocol 258
+//! Multi-Currency Stablecoin SERP Module
+//!
 //!
 //! ## Overview
 //!
-//! The currencies module provides a mixed stablecoin currencies system, by configuring a
+//! The stp258 module provides a mixed stablecoin system, by configuring a
 //! native currency which implements `BasicCurrencyExtended`, and a
 //! multi-currency which implements `SettCurrency`.
 //!
 //! ### Implementations
 //!
-//! The currencies module provides implementations for following traits.
+//! The stp258 module provides implementations for following traits.
 //!
-//! - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system.
+//! - `SettCurrency` - Abstraction over a fungible multi-currency stablecoin system including `expand_supply` and `contract_supply` functions.
 //! - `SettCurrencyExtended` - Extended `SettCurrency` with additional helper
 //!   types and methods, like updating balance
 //! by a given signed integer amount.
