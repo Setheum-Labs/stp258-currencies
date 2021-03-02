@@ -131,9 +131,9 @@ pub mod module {
 		Deposited(CurrencyIdOf<T>, T::AccountId, BalanceOf<T>),
 		/// Withdraw success. [currency_id, who, amount]
 		Withdrawn(CurrencyIdOf<T>, T::AccountId, BalanceOf<T>),
-		/// The supply was expanded by the amount. Sett-Mint
+		/// The supply was expanded by the amount.
 		ExpandedSupply(CurrencyIdOf<T>, AmountOf<T>),
-		/// The supply was contracted by the amount. Dinar-Mint
+		/// The supply was contracted by the amount.
 		ContractedSupply(CurrencyIdOf<T>, AmountOf<T>),
 	}
 
@@ -329,11 +329,12 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 		} else {
 			T::SettCurrency::expand_supply(currency_id, amount)?;
 		}
+		let mut remaining = amount;
 		// Checking whether the supply will overflow.
 		settcurrency_supply
 			.checked_add(currency_id, amount)
 			.ok_or(Error::<T>::SettCurrencySupplyOverflow)?;
-		let new_supply = settcurrency_supply + amount;
+		let new_supply = settcurrency_supply + amount - remaining;
 		native::info!("expanded supply by minting {} {} sett currency", currency_id, amount);
 		<SettCurrencySupply>::put(new_supply);
 		}
