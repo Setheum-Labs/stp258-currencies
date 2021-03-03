@@ -1,96 +1,32 @@
-//! Mocks for the stp258 module.
+//! Mocks for the Stp258 module.
 
 #![cfg(test)]
 
-use crate::{Module, Trait};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
-use frame_system as system;
-use pallet_balances;
-use orml_traits::parameter_type_with_key;
+use super::*;
+use frame_support::{construct_runtime, parameter_types};
+use serp_traits::parameter_type_with_key;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{AccountIdConversion, IdentityLookup},
-	AccountId32, ModuleId, Fixed64, Perbill,
+	AccountId32, ModuleId,
 };
 
-use traits::*;
-
-use super::*;
-use itertools::Itertools;
-use log;
-use more_asserts::*;
-use quickcheck::{QuickCheck, TestResult};
-use rand::{thread_rng, Rng};
-use std::sync::atomic::{AtomicU64, Ordering};
-
-use sp_std::iter;
-use system;
-
-mod stp258 {
-	pub use crate::Event;
-}
-                             
-impl_outer_event! {
-	pub enum TestEvent for Runtime {
-		frame_system<T>,
-		stp258<T>,
-		orml_tokens<T>,
-		pallet_balances<T>,
-	}
-}
-
-impl_outer_origin! {
-	pub enum Origin for Runtime {}
-}
+use crate as currencies;
 
 const TEST_BASE_UNIT: u64 = 1000;
-static LAST_PRICE: AtomicU64 = AtomicU64::new(TEST_BASE_UNIT);
-pub struct RandomPrice;
 
-impl FetchPrice<SettCurrency> for RandomPrice {
-	fn fetch_price() -> SettCurrency {
-		let prev = LAST_PRICE.load(Ordering::SeqCst);
-		let random = thread_rng().gen_range(500, 1500);
-		let ratio: Ratio<u64> = Ratio::new(random, 1000);
-		let next = ratio
-			.checked_mul(&prev.into())
-			.map(|r| r.to_integer())
-			.unwrap_or(prev);
-		LAST_PRICE.store(next + 1, Ordering::SeqCst);
-		prev
-	}
-}
-
-// Configure a mock runtime to test the pallet.
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Runtime;
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    
-    // allow few bids
-	pub const MaximumBids: u64 = 10;
-	// adjust supply every second block
-	pub const ElastAdjustmentFrequency: u64 = 2;
+	pub const BlockHashCount: u64 = 250;
 	pub const BaseUnit: u64 = TEST_BASE_UNIT;
 	pub const InitialSupply: u64 = 100 * BaseUnit::get();
 	pub const MinimumSupply: u64 = BaseUnit::get();
 }
 
 pub type AccountId = AccountId32;
-pub type BlockNumber = u64;
-
-impl system::Config for Runtime {
+impl frame_system::Config for Runtime {
 	type Origin = Origin;
-	type Call = ();
+	type Call = Call;
 	type Index = u64;
 	type BlockNumber = u64;
 	type Hash = H256;
@@ -98,28 +34,20 @@ impl system::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = TestEvent;
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type DbWeight = ();
 	type BaseCallFilter = ();
 	type SystemWeightInfo = ();
-    type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
-}          
-pub type System = frame_system::Module<Runtime>;
-pub type Stp258 = Module<Runtime>;
+	type SS58Prefix = ();
+}
 
 type CurrencyId = u32;
 type Balance = u64;
@@ -131,13 +59,12 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type DustRemoval = ();
-	type Event = TestEvent;
+	type Event = Event;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Module<Runtime>;
 	type MaxLocks = ();
 	type WeightInfo = ();
 }
-pub type PalletBalances = pallet_balances::Module<Runtime>;
 
 parameter_type_with_key! {
 	pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
@@ -149,52 +76,36 @@ parameter_types! {
 	pub DustAccount: AccountId = ModuleId(*b"orml/dst").into_account();
 }
 
-pub struct OffchainPriceMock;
-
-impl FetchPriceFor for OffchainPriceMock {
-	fn get_price_for(symbol: &[u8]) -> Option<u64> {
-		return Some(symbol.len() as u64)
-	}
-}
-
-impl orml_tokens::Config for Runtime {
-	type Event = TestEvent;
+impl stp258_tokens::Config for Runtime {
+	type Event = Event;
 	type Balance = Balance;
 	type Amount = i64;
 	type CurrencyId = CurrencyId;
 	type WeightInfo = ();
 	type ExistentialDeposits = ExistentialDeposits;
-	type OnDust = orml_tokens::TransferDust<Runtime, DustAccount>;
+	type OnDust = stp258_tokens::TransferDust<Runtime, DustAccount>;
 }
-pub type Tokens = orml_tokens::Module<Runtime>;
 
-// The Currency ID of the Native Currency Stablecoin (the Dinar) is DNAR.
-pub const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::Token(TokenSymbol::DNAR);
-// The Sett Currency ID of the Sett Basket Token (the Sett) Stablecoin is SETT.
-pub const SETT_BASKET_ID: CurrencyId = CurrencyId::Token(TokenSymbol::SETT);
-// The Sett Currency ID of the US Dollar Stablecoin (USD) is JUSD.
-pub const SETT_USD_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JUSD);
-// The Sett Currency ID of the Euro Stablecoin (EUR) is JEUR.
-pub const SETT_EUR_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JEUR);
-// The Sett Currency ID of the Pound Sterling (GBP) Stablecoin is JGBP.
-pub const SETT_GBP_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JGBP);
-// The Sett Currency ID of the Swiss Franc (CHF) Stablecoin is JCHF.
-pub const SETT_CHF_ID: CurrencyId = CurrencyId::Token(TokenSymbol::JCHF);
+pub const NATIVE_CURRENCY_ID: CurrencyId = 1;
+pub const X_TOKEN_ID: CurrencyId = 2;
 
 parameter_types! {
 	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
-	pub const GetBasketCurrencyId: CurrencyId = SETT_BASKET_ID;
+	pub const BaseUnit: u64 = TEST_BASE_UNIT;
+	pub const InitialSupply: u64 = 100 * BaseUnit::get();
+	pub const MinimumSupply: u64 = BaseUnit::get();
 }
 
 impl Config for Runtime {
-	type Event = TestEvent;
-	type SettCurrency = Tokens;
+	type Event = Event;
+	type SettCurrency = Stp258Tokens;
 	type NativeCurrency = AdaptedBasicCurrency;
 	type GetNativeCurrencyId = GetNativeCurrencyId;
-	type GetBasketCurrencyId = GetBasketCurrencyId;
 	type WeightInfo = ();
+	type BaseUnit = BaseUnit;
+	type InitialSupply = InitialSupply;
+	type MinimumSupply = MinimumSupply;
 }
-pub type Stp258 = Module<Runtime>;
 pub type NativeCurrency = NativeCurrencyOf<Runtime>;
 pub type AdaptedBasicCurrency = BasicCurrencyAdapter<Runtime, PalletBalances, i64, u64>;
 
@@ -208,32 +119,16 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Storage, Config, Event<T>},
-		Currencies: currencies::{Module, Call, Event<T>},
-		Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
+		Stp258: stp258::{Module, Call, Event<T>},
+		Stp258Tokens: stp258_tokens::{Module, Storage, Event<T>, Config<T>},
 		PalletBalances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-
 	}
 );
 
 pub const ALICE: AccountId = AccountId32::new([1u8; 32]);
 pub const BOB: AccountId = AccountId32::new([2u8; 32]);
 pub const EVA: AccountId = AccountId32::new([5u8; 32]);
-pub const DNAR: LockIdentifier = *b"DNAR       ";
-pub const SETT: LockIdentifier = *b"SETT       ";
-pub const JUSD: LockIdentifier = *b"JUSD       ";
-pub const JEUR: LockIdentifier = *b"JEUR       ";
-pub const JGBP: LockIdentifier = *b"JGBP       ";
-pub const JCHF: LockIdentifier = *b"JCHF       ";
-
-
-
-// Build genesis storage according to the mock runtime.-------------------------------
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
-}
+pub const ID_1: LockIdentifier = *b"1       ";
 
 pub struct ExtBuilder {
 	endowed_accounts: Vec<(AccountId, CurrencyId, Balance)>,
@@ -257,16 +152,8 @@ impl ExtBuilder {
 		self.balances(vec![
 			(ALICE, NATIVE_CURRENCY_ID, 100),
 			(BOB, NATIVE_CURRENCY_ID, 100),
-			(ALICE, SETT_BASKET_ID, 100),
-			(BOB, SETT_BASKET_ID, 100),
-			(ALICE, SETT_USD_ID, 100),
-			(BOB, SETT_USD_ID, 100),
-			(ALICE, SETT_EUR_ID, 100),
-			(BOB, SETT_EUR_ID, 100),
-			(ALICE, SETT_GBP_ID, 100),
-			(BOB, SETT_GBP_ID, 100),
-			(ALICE, SETT_CHF_ID, 100),
-			(BOB, SETT_CHF_ID, 100),
+			(ALICE, X_TOKEN_ID, 100),
+			(BOB, X_TOKEN_ID, 100),
 		])
 	}
 
@@ -287,7 +174,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		orml_tokens::GenesisConfig::<Runtime> {
+		stp258_tokens::GenesisConfig::<Runtime> {
 			endowed_accounts: self
 				.endowed_accounts
 				.into_iter()
