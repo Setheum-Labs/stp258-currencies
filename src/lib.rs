@@ -10,12 +10,13 @@ use frame_support::{
 	},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use orml_traits::{
+use serp_traits::{
 	account::MergeAccount,
 	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, BasicCurrency, BasicCurrencyExtended, BasicLockableCurrency, BasicReservableCurrency,
-	LockIdentifier, MultiCurrency as SettCurrency, MultiCurrencyExtended as SettCurrencyExtended, 
-	MultiLockableCurrency as SettCurrencyLockable, MultiReservableCurrency as SettCurrencyReservable,
+	BalanceStatus, BasicCurrency, BasicCurrencyExtended, 
+	BasicLockableCurrency, BasicReservableCurrency,
+	LockIdentifier, SettCurrency, SettCurrencyExtended, 
+	SettCurrencyLockable, SettCurrencyReservable,
 };
 use orml_utilities::with_transaction_result;
 use sp_runtime::{
