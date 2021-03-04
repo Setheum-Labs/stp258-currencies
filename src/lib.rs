@@ -566,7 +566,7 @@ where
 		let _ = Currency::deposit_creating(who, amount);
 		Ok(())
 	}
-
+	
 	fn withdraw(who: &AccountId, amount: Self::Balance) -> DispatchResult {
 		Currency::withdraw(who, amount, WithdrawReasons::all(), ExistenceRequirement::AllowDeath).map(|_| ())
 	}
