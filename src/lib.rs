@@ -561,7 +561,7 @@ where
 	fn transfer(from: &AccountId, to: &AccountId, amount: Self::Balance) -> DispatchResult {
 		Currency::transfer(from, to, amount, ExistenceRequirement::AllowDeath)
 	}
-
+	
 	fn deposit(who: &AccountId, amount: Self::Balance) -> DispatchResult {
 		let _ = Currency::deposit_creating(who, amount);
 		Ok(())
