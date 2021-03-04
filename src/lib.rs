@@ -5,7 +5,8 @@ use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency as PalletCurrency, ExistenceRequirement, Get, LockableCurrency as PalletLockableCurrency,
+		Currency as PalletCurrency, ExistenceRequirement, Get, 
+		LockableCurrency as PalletLockableCurrency,
 		ReservableCurrency as PalletReservableCurrency, WithdrawReasons,
 	},
 };
@@ -13,10 +14,9 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use serp_traits::{
 	account::MergeAccount,
 	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, BasicCurrency, BasicCurrencyExtended, 
-	BasicLockableCurrency, BasicReservableCurrency,
-	LockIdentifier, SettCurrency, SettCurrencyExtended, 
-	SettCurrencyLockable, SettCurrencyReservable,
+	BalanceStatus, BasicCurrency, BasicLockableCurrency, BasicReservableCurrency, 
+	BasicCurrencyExtended, LockIdentifier, SettCurrency, SettCurrencyLockable,
+	SettCurrencyExtended, SettCurrencyReservable,
 };
 use orml_utilities::with_transaction_result;
 use sp_runtime::{
@@ -566,7 +566,6 @@ where
 		let _ = Currency::deposit_creating(who, amount);
 		Ok(())
 	}
-	
 	fn withdraw(who: &AccountId, amount: Self::Balance) -> DispatchResult {
 		Currency::withdraw(who, amount, WithdrawReasons::all(), ExistenceRequirement::AllowDeath).map(|_| ())
 	}
