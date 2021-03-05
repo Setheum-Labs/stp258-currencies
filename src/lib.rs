@@ -223,7 +223,7 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 			return Ok(());
 		}
 		if currency_id == T::GetNativeCurrencyId::get() {
-			T::NativeCurrency::deposit_expand_issuance(who, amount)?;
+			T::NativeCurrency::deposit(who, amount)?;
 		} else {
 			T::SettCurrency::deposit_expand_issuance(currency_id, who, amount)?;
 		}
@@ -236,7 +236,7 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 			return Ok(());
 		}
 		if currency_id == T::GetNativeCurrencyId::get() {
-			T::NativeCurrency::withdraw_contract_issuance(who, amount)?;
+			T::NativeCurrency::withdraw(who, amount)?;
 		} else {
 			T::SettCurrency::withdraw_contract_issuance(currency_id, who, amount)?;
 		}
