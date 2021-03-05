@@ -218,32 +218,6 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 		Ok(())
 	}
 
-	fn deposit_expand_issuance(currency_id: Self::CurrencyId, who: &T::AccountId, amount: Self::Balance) -> DispatchResult {
-		if amount.is_zero() {
-			return Ok(());
-		}
-		if currency_id == T::GetNativeCurrencyId::get() {
-			T::NativeCurrency::deposit(who, amount)?;
-		} else {
-			T::SettCurrency::deposit_expand_issuance(currency_id, who, amount)?;
-		}
-		Self::deposit_event(Event::Deposited(currency_id, who.clone(), amount));
-		Ok(())
-	}
-
-	fn withdraw_contract_issuance(currency_id: Self::CurrencyId, who: &T::AccountId, amount: Self::Balance) -> DispatchResult {
-		if amount.is_zero() {
-			return Ok(());
-		}
-		if currency_id == T::GetNativeCurrencyId::get() {
-			T::NativeCurrency::withdraw(who, amount)?;
-		} else {
-			T::SettCurrency::withdraw_contract_issuance(currency_id, who, amount)?;
-		}
-		Self::deposit_event(Event::Withdrawn(currency_id, who.clone(), amount));
-		Ok(())
-	}
-
 	fn deposit(currency_id: Self::CurrencyId, who: &T::AccountId, amount: Self::Balance) -> DispatchResult {
 		if amount.is_zero() {
 			return Ok(());
