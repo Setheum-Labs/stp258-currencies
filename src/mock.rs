@@ -12,15 +12,12 @@ use sp_runtime::{
 	AccountId32, ModuleId,
 };
 
-use crate as currencies;
+use crate as stp258;
 
 const TEST_BASE_UNIT: u64 = 1000;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
-	pub const BaseUnit: u64 = TEST_BASE_UNIT;
-	pub const InitialSupply: u64 = 100 * BaseUnit::get();
-	pub const MinimumSupply: u64 = BaseUnit::get();
 }
 
 pub type AccountId = AccountId32;
@@ -91,9 +88,6 @@ pub const X_TOKEN_ID: CurrencyId = 2;
 
 parameter_types! {
 	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
-	pub const BaseUnit: u64 = TEST_BASE_UNIT;
-	pub const InitialSupply: u64 = 100 * BaseUnit::get();
-	pub const MinimumSupply: u64 = BaseUnit::get();
 }
 
 impl Config for Runtime {
@@ -102,9 +96,6 @@ impl Config for Runtime {
 	type NativeCurrency = AdaptedBasicCurrency;
 	type GetNativeCurrencyId = GetNativeCurrencyId;
 	type WeightInfo = ();
-	type BaseUnit = BaseUnit;
-	type InitialSupply = InitialSupply;
-	type MinimumSupply = MinimumSupply;
 }
 pub type NativeCurrency = NativeCurrencyOf<Runtime>;
 pub type AdaptedBasicCurrency = BasicCurrencyAdapter<Runtime, PalletBalances, i64, u64>;

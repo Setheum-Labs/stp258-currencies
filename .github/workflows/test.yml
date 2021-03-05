@@ -6,11 +6,15 @@ on:
   pull_request:
     branches: [ master ]
 
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build:
-    runs-on: [self-hosted, linux]
-    env:
-      SCCACHE_CACHE_SIZE: "50G"
+
+    runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v2
     - name: Install toolchain
@@ -21,12 +25,10 @@ jobs:
         target: wasm32-unknown-unknown
         default: true
     - name: Install Wasm toolchain
-      run: rustup target add wasm32-unknown-unknown nightly-2021-02-17
+      run: rustup target add wasm32-unknown-unknown
     - name: Install clippy
       run: rustup component add clippy
     - name: Build
       run: cargo build --verbose
-    - name: Cargo unleash check
-      run: cargo unleash checkout --verbose
     - name: Run tests
-      run: CARGO test-all --verbose
+      run: cargo test --verbose

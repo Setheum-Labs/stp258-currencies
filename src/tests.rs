@@ -8,43 +8,6 @@ use mock::{Event, *};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
-fn expand_supply_should_work() {
-	ExtBuilder::default()
-		.one_hundred_for_alice_n_bob()
-		.build()
-		.execute_with(|| {
-		let prev_supply = Stp258::settcurrency_supply(X_TOKEN_ID);
-		let amount = 13 * BaseUnit::get();
-		assert_ok!(Stp258::expand_supply(prev_supply, amount));
-		assert_eq!(Stp258::total_issuance(X_TOKEN_ID), settcurrency_supply + amount);
-		assert_eq!(Stp258::free_balance(X_TOKEN_ID, &ALICE), 100);
-		assert_eq!(Stp258::free_balance(X_TOKEN_ID, &BOB), 100);
-		assert_eq!(
-			Stp258::settcurrency_supply(X_TOKEN_ID),
-			prev_supply + amount,
-			"supply should be increased by amount"
-		);
-	});
-}
-
-#[test]
-fn contract_supply_should_work() {
-	ExtBuilder::default()
-		.one_hundred_for_alice_n_bob()
-		.build()
-		.execute_with(|| {
-		let prev_supply = SettCurrency::settcurrency_supply(X_TOKEN_ID);
-		let amount = 2 * BaseUnit::get();
-		assert_ok!(SettCurrency::contract_supply(prev_supply, amount));
-		assert_eq!(
-			SettCurrency::settcurrency_supply(X_TOKEN_ID),
-			prev_supply - amount,
-			"supply should be decreased by amount"
-		);
-	})
-}
-
-#[test]
 fn currency_adapter_burn_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
@@ -79,7 +42,7 @@ fn sett_currency_lockable_should_work() {
 		.build()
 		.execute_with(|| {
 			assert_ok!(Stp258::set_lock(ID_1, X_TOKEN_ID, &ALICE, 50));
-			assert_eq!(Tokens::locks(&ALICE, X_TOKEN_ID).len(), 1);
+			assert_eq!(Stp258Tokens::locks(&ALICE, X_TOKEN_ID).len(), 1);
 			assert_ok!(Stp258::set_lock(ID_1, NATIVE_CURRENCY_ID, &ALICE, 50));
 			assert_eq!(PalletBalances::locks(&ALICE).len(), 1);
 		});

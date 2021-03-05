@@ -5,7 +5,8 @@ use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency as PalletCurrency, ExistenceRequirement, Get, LockableCurrency as PalletLockableCurrency,
+		Currency as PalletCurrency, ExistenceRequirement, Get, 
+		LockableCurrency as PalletLockableCurrency,
 		ReservableCurrency as PalletReservableCurrency, WithdrawReasons,
 	},
 };
@@ -13,10 +14,9 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use serp_traits::{
 	account::MergeAccount,
 	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, BasicCurrency, BasicCurrencyExtended, 
-	BasicLockableCurrency, BasicReservableCurrency,
-	LockIdentifier, SettCurrency, SettCurrencyExtended, 
-	SettCurrencyLockable, SettCurrencyReservable,
+	BalanceStatus, BasicCurrency, BasicLockableCurrency, BasicReservableCurrency, 
+	BasicCurrencyExtended, LockIdentifier, SettCurrency, SettCurrencyLockable,
+	SettCurrencyExtended, SettCurrencyReservable,
 };
 use orml_utilities::with_transaction_result;
 use sp_runtime::{
@@ -215,6 +215,32 @@ impl<T: Config> SettCurrency<T::AccountId> for Pallet<T> {
 			T::SettCurrency::transfer(currency_id, from, to, amount)?;
 		}
 		Self::deposit_event(Event::Transferred(currency_id, from.clone(), to.clone(), amount));
+		Ok(())
+	}
+
+	fn deposit_expand_issuance(currency_id: Self::CurrencyId, who: &T::AccountId, amount: Self::Balance) -> DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::deposit(who, amount)?;
+		} else {
+			T::SettCurrency::deposit_expand_issuance(currency_id, who, amount)?;
+		}
+		Self::deposit_event(Event::Deposited(currency_id, who.clone(), amount));
+		Ok(())
+	}
+
+	fn withdraw_contract_issuance(currency_id: Self::CurrencyId, who: &T::AccountId, amount: Self::Balance) -> DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+		if currency_id == T::GetNativeCurrencyId::get() {
+			T::NativeCurrency::withdraw(who, amount)?;
+		} else {
+			T::SettCurrency::withdraw_contract_issuance(currency_id, who, amount)?;
+		}
+		Self::deposit_event(Event::Withdrawn(currency_id, who.clone(), amount));
 		Ok(())
 	}
 
@@ -535,12 +561,11 @@ where
 	fn transfer(from: &AccountId, to: &AccountId, amount: Self::Balance) -> DispatchResult {
 		Currency::transfer(from, to, amount, ExistenceRequirement::AllowDeath)
 	}
-
+	
 	fn deposit(who: &AccountId, amount: Self::Balance) -> DispatchResult {
 		let _ = Currency::deposit_creating(who, amount);
 		Ok(())
 	}
-
 	fn withdraw(who: &AccountId, amount: Self::Balance) -> DispatchResult {
 		Currency::withdraw(who, amount, WithdrawReasons::all(), ExistenceRequirement::AllowDeath).map(|_| ())
 	}
