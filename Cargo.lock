@@ -5308,7 +5308,7 @@ dependencies = [
 [[package]]
 name = "serp-traits"
 version = "0.4.3-dev"
-source = "git+https://github.com/Setheum-Labs/serp-traits#c14ef8d146b870337c6ac686ccfeceb100bbc436"
+source = "git+https://github.com/Setheum-Labs/serp-traits"
 dependencies = [
  "frame-support",
  "funty",
@@ -6188,7 +6188,7 @@ dependencies = [
 [[package]]
 name = "stp258-tokens"
 version = "0.4.3-dev"
-source = "git+https://github.com/Setheum-Labs/stp258-tokens?branch=master#d95761f432740bb5d5f0a833c7e80dc43d94b5e0"
+source = "git+https://github.com/Setheum-Labs/stp258-tokens?branch=master#"
 dependencies = [
  "fixed",
  "frame-benchmarking-cli",
