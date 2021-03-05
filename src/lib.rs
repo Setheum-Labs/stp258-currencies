@@ -11,7 +11,7 @@ use frame_support::{
 	},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use serp_traits::{
+use stp258_traits::{
 	account::MergeAccount,
 	arithmetic::{Signed, SimpleArithmetic},
 	BalanceStatus, BasicCurrency, BasicLockableCurrency, BasicReservableCurrency, 

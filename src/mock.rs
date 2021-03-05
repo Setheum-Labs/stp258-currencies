@@ -4,7 +4,7 @@
 
 use super::*;
 use frame_support::{construct_runtime, parameter_types};
-use serp_traits::parameter_type_with_key;
+use stp258_traits::parameter_type_with_key;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
