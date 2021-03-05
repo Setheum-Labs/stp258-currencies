@@ -14,13 +14,9 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use serp_traits::{
 	account::MergeAccount,
 	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, LockIdentifier, SettCurrency,
+	BalanceStatus, BasicCurrency, BasicLockableCurrency, BasicReservableCurrency, 
+	BasicCurrencyExtended, LockIdentifier, SettCurrency, SettCurrencyLockable,
 	SettCurrencyExtended, SettCurrencyReservable,
-};
-use orml_traits::{
-	BasicCurrency, BasicCurrencyExtended, 
-	BasicLockableCurrency, BasicReservableCurrency,
-	MultiLockableCurrency as SettCurrencyLockable,
 };
 use orml_utilities::with_transaction_result;
 use sp_runtime::{
