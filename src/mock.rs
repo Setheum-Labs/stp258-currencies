@@ -68,7 +68,7 @@ parameter_type_with_key! {
 }
 
 parameter_types! {
-	pub DustAccount: AccountId = ModuleId(*b"orml/dst").into_account();
+	pub DustAccount: AccountId = ModuleId(*b"stp258/dst").into_account();
 }
 
 impl stp258_tokens::Config for Runtime {
@@ -81,22 +81,22 @@ impl stp258_tokens::Config for Runtime {
 	type OnDust = stp258_tokens::TransferDust<Runtime, DustAccount>;
 }
 
-pub const NATIVE_CURRENCY_ID: CurrencyId = 1;
-pub const X_TOKEN_ID: CurrencyId = 2;
+pub const STP258_NATIVE_ID: CurrencyId = 1;
+pub const STP258_TOKEN_ID: CurrencyId = 2;
 
 parameter_types! {
-	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
+	pub const GetStp258NativeId: CurrencyId = STP258_NATIVE_ID;
 }
 
 impl Config for Runtime {
 	type Event = Event;
-	type SettCurrency = Stp258Tokens;
-	type NativeCurrency = AdaptedBasicCurrency;
-	type GetNativeCurrencyId = GetNativeCurrencyId;
+	type Stp258Currency = Stp258Tokens;
+	type Stp258Native = AdaptedStp258Asset;
+	type GetStp258NativeId = GetStp258NativeId;
 	type WeightInfo = ();
 }
-pub type NativeCurrency = NativeCurrencyOf<Runtime>;
-pub type AdaptedBasicCurrency = BasicCurrencyAdapter<Runtime, PalletBalances, i64, u64>;
+pub type Stp258Native = Stp258NativeOf<Runtime>;
+pub type AdaptedStp258Asset = Stp258AssetAdapter<Runtime, PalletBalances, i64, u64>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -139,10 +139,10 @@ impl ExtBuilder {
 
 	pub fn one_hundred_for_alice_n_bob(self) -> Self {
 		self.balances(vec![
-			(ALICE, NATIVE_CURRENCY_ID, 100),
-			(BOB, NATIVE_CURRENCY_ID, 100),
-			(ALICE, X_TOKEN_ID, 100),
-			(BOB, X_TOKEN_ID, 100),
+			(ALICE, STP258_NATIVE_ID, 100),
+			(BOB, STP258_NATIVE_ID, 100),
+			(ALICE, STP258_TOKEN_ID, 100),
+			(BOB, STP258_TOKEN_ID, 100),
 		])
 	}
 
@@ -156,7 +156,7 @@ impl ExtBuilder {
 				.endowed_accounts
 				.clone()
 				.into_iter()
-				.filter(|(_, currency_id, _)| *currency_id == NATIVE_CURRENCY_ID)
+				.filter(|(_, currency_id, _)| *currency_id == STP258_NATIVE_ID)
 				.map(|(account_id, _, initial_balance)| (account_id, initial_balance))
 				.collect::<Vec<_>>(),
 		}
@@ -167,7 +167,7 @@ impl ExtBuilder {
 			endowed_accounts: self
 				.endowed_accounts
 				.into_iter()
-				.filter(|(_, currency_id, _)| *currency_id != NATIVE_CURRENCY_ID)
+				.filter(|(_, currency_id, _)| *currency_id != STP258_NATIVE_ID)
 				.collect::<Vec<_>>(),
 		}
 		.assimilate_storage(&mut t)

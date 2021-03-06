@@ -21,7 +21,7 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         profile: minimal
-        toolchain: nightly-2021-02-17
+        toolchain: nightly-2021-03-05
         target: wasm32-unknown-unknown
         default: true
     - name: Install Wasm toolchain
