@@ -1,9 +1,9 @@
 [package]
-name = "stp258-standard"
+name = "stp258-currencies"
 description = "Provide `MultiCurrency` implementation using `pallet-balances` and `orml-tokens` module."
 repository = "https://github.com/open-web3-stack/open-runtime-module-library/tree/master/currencies"
 license = "Apache-2.0"
-version = "0.4.1-dev"
+version = "0.5..0-dev"
 authors = ["Laminar Developers <hello@laminar.one>"]
 edition = "2018"
 
