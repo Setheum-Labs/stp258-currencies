@@ -117,7 +117,7 @@ fn stp258_native_should_work() {
 		.one_hundred_for_alice_n_bob()
 		.build()
 		.execute_with(|| {
-			assert_ok!(Stp258Currencies::transfer_stp258_native(Some(ALICE).into(), BOB, 50));
+			assert_ok!(Stp258Currencies::transfer_native_currency(Some(ALICE).into(), BOB, 50));
 			assert_eq!(Stp258Native::free_balance(&ALICE), 50);
 			assert_eq!(Stp258Native::free_balance(&BOB), 150);
 
