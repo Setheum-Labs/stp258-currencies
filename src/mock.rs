@@ -68,7 +68,7 @@ parameter_type_with_key! {
 }
 
 parameter_types! {
-	pub DustAccount: AccountId = ModuleId(*b"stp258/dst").into_account();
+	pub DustAccount: AccountId = ModuleId(*b"dsss/dst").into_account();
 }
 
 impl stp258_tokens::Config for Runtime {
