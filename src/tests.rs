@@ -87,7 +87,7 @@ fn stp258_asset_adapting_pallet_balances_reservable() {
 }
 
 #[test]
-fn stp258_multi_should_work() {
+fn stp258_currency_should_work() {
 	ExtBuilder::default()
 		.one_hundred_for_alice_n_bob()
 		.build()
