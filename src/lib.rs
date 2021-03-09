@@ -4,18 +4,24 @@
 use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{
-		Currency as SetheumCurrency, ExistenceRequirement, Get, 
-		LockableCurrency as SetheumLockableCurrency,
-		ReservableCurrency as SetheumReservableCurrency, WithdrawReasons,
-	},
+	traits::{ExistenceRequirement, Get, WithdrawReasons},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use stp258_traits::{
 	account::MergeAccount,
-	arithmetic::{Signed, SimpleArithmetic},
-	BalanceStatus, Stp258Asset, Stp258AssetExtended, Stp258AssetLockable, Stp258AssetReservable,
-	LockIdentifier, Stp258Currency, Stp258CurrencyExtended, Stp258CurrencyReservable, Stp258CurrencyLockable,
+	arithmetic::Signed,
+	setheum_currency::{
+		BalanceStatus as Status, Currency as SetheumCurrency, 
+		LockableCurrency as SetheumLockableCurrency, 
+		ReservableCurrency as SetheumReservableCurrency
+	}
+	stp258_currency::{
+		Stp258Currency, 
+		Stp258CurrencyExtended, 
+		Stp258CurrencyReservable, 
+		Stp258CurrencyLockable,
+		LockIdentifier, OnDust, GetByKey, 
+	},
 };
 use orml_utilities::with_transaction_result;
 use sp_runtime::{
