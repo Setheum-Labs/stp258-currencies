@@ -1,11 +1,12 @@
 [package]
-name = "stp258-currencies"
-description = "Provide `MultiCurrency` implementation using `pallet-balances` and `orml-tokens` module."
-repository = "https://github.com/open-web3-stack/open-runtime-module-library/tree/master/currencies"
-license = "Apache-2.0"
-version = "0.5.0-dev"
-authors = ["Laminar Developers <hello@laminar.one>"]
-edition = "2018"
+authors = ['Setheum Labs<https://github.com/Setheum-Labs>']
+description = 'Setheum Elastic Reserve Protocol (SERP) Market Pallet'
+edition = '2018'
+homepage = 'https://setheum.xyz'
+license = 'Apache-2.0 License'
+name = 'stp258_currencies'
+repository = 'https://github.com/Setheum-Labs/Setheum/'
+version = '0.5.0-dev'
 
 [dependencies]
 serde = { version = "1.0.111", optional = true }

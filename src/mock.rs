@@ -84,8 +84,11 @@ impl stp258_tokens::Config for Runtime {
 pub const STP258_NATIVE_ID: CurrencyId = 1;
 pub const STP258_TOKEN_ID: CurrencyId = 2;
 
+const STP258_BASE_UNIT: u64 = 1000;
+
 parameter_types! {
 	pub const GetStp258NativeId: CurrencyId = STP258_NATIVE_ID;
+	pub const GetBaseUnit: u64 =  STP258_BASE_UNIT;
 }
 
 impl Config for Runtime {
@@ -93,6 +96,7 @@ impl Config for Runtime {
 	type Stp258Currency = Stp258Tokens;
 	type Stp258Native = AdaptedStp258Asset;
 	type GetStp258NativeId = GetStp258NativeId;
+	type GetBaseUnit = GetBaseUnit;
 	type WeightInfo = ();
 }
 pub type Stp258Native = Stp258NativeOf<Runtime>;
@@ -141,8 +145,8 @@ impl ExtBuilder {
 		self.balances(vec![
 			(ALICE, STP258_NATIVE_ID, 100),
 			(BOB, STP258_NATIVE_ID, 100),
-			(ALICE, STP258_TOKEN_ID, 100),
-			(BOB, STP258_TOKEN_ID, 100),
+			(ALICE, STP258_TOKEN_ID, 100 * STP258_BASE_UNIT),
+			(BOB, STP258_TOKEN_ID, 100 * STP258_BASE_UNIT),
 		])
 	}
 
