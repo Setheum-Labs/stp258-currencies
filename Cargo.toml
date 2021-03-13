@@ -4,7 +4,7 @@ description = 'Setheum Elastic Reserve Protocol (SERP) Market Pallet'
 edition = '2018'
 homepage = 'https://setheum.xyz'
 license = 'Apache-2.0 License'
-name = 'stp258_currencies'
+name = 'stp258-currencies'
 repository = 'https://github.com/Setheum-Labs/Setheum/'
 version = '0.5.0-dev'
 
