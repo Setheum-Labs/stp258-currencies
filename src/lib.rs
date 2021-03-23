@@ -53,9 +53,6 @@ pub mod module {
 	pub(crate) type AmountOf<T> =
 		<<T as Config>::Stp258Currency as Stp258CurrencyExtended<<T as frame_system::Config>::AccountId>>::Amount;
 
-	#[pallet::pallet]
-	pub struct Pallet<T>(PhantomData<T>);
-	
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -71,12 +68,6 @@ pub mod module {
 
 		#[pallet::constant]
 		type GetStp258NativeId: Get<CurrencyIdOf<Self>>;
-
-
-		/// The balance of an account.
-		#[pallet::constant]
-		type GetBaseUnit: Get<u64>;
-		
 
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
@@ -103,13 +94,14 @@ pub mod module {
 		Withdrawn(CurrencyIdOf<T>, T::AccountId, BalanceOf<T>),
 	}
 
+	#[pallet::pallet]
+	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		
 		/// Transfer some balance to another account under `currency_id`.
 		///
 		/// The dispatch origin for this call must be `Signed` by the
@@ -166,6 +158,14 @@ pub mod module {
 impl<T: Config> Stp258Currency<T::AccountId> for Pallet<T> {
 	type CurrencyId = CurrencyIdOf<T>;
 	type Balance = BalanceOf<T>;
+
+	fn base_unit(currency_id: Self::CurrencyId) -> Self::Balance {
+		if currency_id == T::GetStp258NativeId::get() {
+			T::Stp258Native::minimum_balance()
+		} else {
+			T::Stp258Currency::base_unit(currency_id)
+		}
+	}
 
 	fn minimum_balance(currency_id: Self::CurrencyId) -> Self::Balance {
 		if currency_id == T::GetStp258NativeId::get() {

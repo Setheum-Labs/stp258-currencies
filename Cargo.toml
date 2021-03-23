@@ -1,12 +1,12 @@
 [package]
 authors = ['Setheum Labs<https://github.com/Setheum-Labs>']
-description = 'Setheum Elastic Reserve Protocol (SERP) Market Pallet'
+description = 'Provide `Stp258Standard` implementation using `pallet-balances` and `stp258-tokens'
 edition = '2018'
 homepage = 'https://setheum.xyz'
 license = 'Apache-2.0 License'
 name = 'stp258-currencies'
 repository = 'https://github.com/Setheum-Labs/Setheum/'
-version = '0.5.0-dev'
+version = '0.5.1-dev'
 
 [dependencies]
 serde = { version = "1.0.111", optional = true }
@@ -18,15 +18,15 @@ sp-std = { version = "3.0.0", default-features = false }
 frame-support = { version = "3.0.0", default-features = false }
 frame-system = { version = "3.0.0", default-features = false }
 
-stp258-traits = { version = '0.5.0-dev', git = "https://github.com/Setheum-Labs/stp258-traits", branch = "alpha" }
+stp258-traits = { version = '0.5.0-dev', git = "https://github.com/Setheum-Labs/stp258-traits", branch = "pretty-messy" }
 orml-utilities = { version = "0.4.0", default-features = false }
 
-funty = { version = "=1.1.0", default-features = false } # https://github.com/bitvecto-rs/bitvec/issues/105
+funty = { version = "1.1.0", default-features = false } # https://github.com/bitvecto-rs/bitvec/issues/105
 
 [dev-dependencies]
 sp-core = "3.0.0"
 pallet-balances = "3.0.0"
-stp258-tokens = { version = "0.5.0-dev", git = "https://github.com/Setheum-Labs/stp258-tokens"}
+stp258-tokens = { version = "0.5.1-dev", git = "https://github.com/Setheum-Labs/stp258-tokens"}
 
 [features]
 default = ["std"]
