@@ -12,7 +12,7 @@ use sp_runtime::{
 	AccountId32, ModuleId, Perbill,
 };
 
-use crate as stp258_standard;
+use crate as stp258_currencies;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -23,7 +23,7 @@ impl frame_system::Config for Runtime {
 	type Origin = Origin;
 	type Call = Call;
 	type Index = u64;
-	type BlockNumber = u64;
+	type BlockNumber = Blocknumber;
 	type Hash = H256;
 	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
@@ -46,6 +46,7 @@ impl frame_system::Config for Runtime {
 
 type CurrencyId = u32;
 type Balance = u64;
+type Blocknumber = u64;
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 1;
@@ -77,6 +78,7 @@ parameter_type_with_key! {
 	};
 }
 
+const PERCENT: Balance = 100;
 const SERP_QUOTE_MULTIPLE: Balance = 2;
 const SINGLE_UNIT: Balance = 1;
 const SERPER_RATIO: Perbill = Perbill::from_percent(25);
@@ -93,6 +95,9 @@ parameter_types! {
 	pub const GetSingleUnit: Balance = SINGLE_UNIT;
 	pub const GetSerperRatio: Perbill = SERPER_RATIO;
 	pub const GetSettPayRatio: Perbill = SETT_PAY_RATIO;
+	pub const GetSerpNativeId: CurrencyId = DNAR;
+	pub const GetPercent: Balance = PERCENT;
+	pub const AdjustmentFrequency: Blocknumber = ADJUSTMENT_FREQUENCY;
 }
 
 impl stp258_tokens::Config for Runtime {
@@ -103,6 +108,9 @@ impl stp258_tokens::Config for Runtime {
 	type WeightInfo = ();
 	type ExistentialDeposits = ExistentialDeposits;
 	type GetBaseUnit = GetBaseUnit;
+	type AdjustmentFrequency = AdjustmentFrequency;
+	type GetPercent = GetPercent;
+	type GetSerpNativeId = GetSerpNativeId;
 	type GetSerpQuoteMultiple = GetSerpQuoteMultiple;
 	type GetSerperAcc = GetSerperAcc;
 	type GetSettPayAcc = GetSettPayAcc;
@@ -115,6 +123,8 @@ impl stp258_tokens::Config for Runtime {
 pub const DNAR: CurrencyId = 1;
 pub const SETT: CurrencyId = 2;
 pub const JUSD: CurrencyId = 3;
+
+pub const ADJUSTMENT_FREQUENCY: Blocknumber = 10;
 
 parameter_types! {
 	pub const GetStp258NativeId: CurrencyId = DNAR;
@@ -140,7 +150,7 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Storage, Config, Event<T>},
-		Stp258Standard: stp258_standard::{Module, Call, Event<T>},
+		Stp258Currencies: stp258_currencies::{Module, Call, Event<T>},
 		Stp258Tokens: stp258_tokens::{Module, Storage, Event<T>, Config<T>},
 		PalletBalances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 	}
