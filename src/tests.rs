@@ -14,7 +14,7 @@ fn stp258_currency_lockable_should_work() {
 		.build()
 		.execute_with(|| {
 			assert_ok!(Stp258Currencies::set_lock(ID_1, SETT, &ALICE, 50 * 10_000));
-			assert_eq!(Stp258Tokens::locks(&ALICE, SETT).len(), 1);
+			assert_eq!(Stp258Serp::locks(&ALICE, SETT).len(), 1);
 			assert_ok!(Stp258Currencies::set_lock(ID_1, DNAR, &ALICE, 50));
 			assert_eq!(PalletBalances::locks(&ALICE).len(), 1);
 		});
