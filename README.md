@@ -41,25 +41,3 @@ This Pallet is inspired by the [ORML Currencies](https://github.com/open-web3-st
 
 Run `cargo build` to build.
 Run `cargo test` to test.
-
-    build:
-
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: nightly-2021-03-05
-        target: wasm32-unknown-unknown
-        default: true
-    - name: Install Wasm toolchain
-      run: rustup target add wasm32-unknown-unknown
-    - name: Install clippy
-      run: rustup component add clippy
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
