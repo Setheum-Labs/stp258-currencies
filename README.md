@@ -30,14 +30,3 @@
  `Config::Stp258Native`.
  - `update_balance` - Update balance by signed integer amount, in a given
    currency, root origin required.
- 
-## Acknowledgement & Reference
-
-This Pallet is built on [STP258 Serp](https://github.com/Setheum-Labs/stp258-serp) pallet.
-
-This Pallet is inspired by the [ORML Currencies](https://github.com/open-web3-stack/open-runtime-module-library/blob/master/currencies) Pallet developed by [Open Web3 Stack](https://github.com/open-web3-stack/), for reference check [The ORML Repo](https://github.com/open-web3-stack/open-runtime-module-library).
- 
-## Test & Build
-
-Run `cargo build` to build.
-Run `cargo test` to test.
