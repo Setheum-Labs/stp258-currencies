@@ -30,3 +30,7 @@
  `Config::Stp258Native`.
  - `update_balance` - Update balance by signed integer amount, in a given
    currency, root origin required.
+
+# Reference
+
+This is a fork of [Acala's ORML Currencies](https://github.com/open-web3-stack/open-runtime-module-library/tree/master/currencies). Thanks to the team at [Acala] for such good work (https://github.com/AcalaNetwork/Acala).
