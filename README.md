@@ -33,4 +33,4 @@
 
 # Reference
 
-This is a fork of [Acala's ORML Currencies](https://github.com/open-web3-stack/open-runtime-module-library/tree/master/currencies). Thanks to the team at [Acala] for such good work (https://github.com/AcalaNetwork/Acala).
+This is a fork of [Acala's ORML Currencies](https://github.com/open-web3-stack/open-runtime-module-library/tree/master/currencies). Thanks to the team at [Acala](https://github.com/AcalaNetwork/Acala) for such good work.
